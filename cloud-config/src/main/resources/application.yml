@@ -1,6 +1,7 @@
 
 server:
   port: 9296
+  address: 0.0.0.0
 
 spring:
   zipkin:
@@ -11,7 +12,7 @@ spring:
     config:
       server:
         git:
-          uri: https://github.com/SelimHorri/cloud-config-server
+          uri: https://github.com/Salazq/cloud-config-server
           clone-on-start: true
 
 resilience4j:
