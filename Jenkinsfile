@@ -1,8 +1,5 @@
 pipeline {
     agent any
-    environment {
-        REGISTRY = "localhost:58687"
-    }
     stages {
         stage('Start Minikube if needed') {
             steps {
@@ -17,7 +14,16 @@ pipeline {
                 '''
             }
         }
-        stage('Build & Push Images') {
+
+        stage('Set Docker to Minikube Env') {
+            steps {
+                bat '''
+                for /f "delims=" %%i in ('minikube docker-env --shell cmd') do call %%i
+                '''
+            }
+        }
+
+        stage('Build Images in Minikube Docker') {
             steps {
                 script {
                     def services = [
@@ -35,13 +41,13 @@ pipeline {
                     for (svc in services) {
                         dir(svc) {
                             bat "mvnw.cmd clean package -DskipTests"
-                            bat "docker build -t %REGISTRY%/${svc}:latest ."
-                            bat "docker push %REGISTRY%/${svc}:latest"
+                            bat "docker build -t ${svc}:latest ."
                         }
                     }
                 }
             }
         }
+
         stage('Deploy to Minikube') {
             steps {
                 bat 'kubectl apply -f k8s/'
