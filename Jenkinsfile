@@ -27,16 +27,16 @@ pipeline {
             steps {
                 script {
                     def services = [
-                        'api-gateway',
+                        'service-discovery',
                         'cloud-config',
-                        'favourite-service',
-                        'order-service',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service'/*,
                         'payment-service',
                         'product-service',
-                        'proxy-client',
-                        'service-discovery',
                         'shipping-service',
-                        'user-service'
+                        'user-service',
+                        'favourite-service'*/
                     ]
                     for (svc in services) {
                         dir(svc) {

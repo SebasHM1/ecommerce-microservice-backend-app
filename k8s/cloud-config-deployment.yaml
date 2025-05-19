@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: cloud-config
-        image: localhost:5000/cloud-config:latest
+        image: cloud-config:latest
         ports:
         - containerPort: 9296
         env:

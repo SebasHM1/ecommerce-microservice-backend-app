@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: proxy-client
-        image: localhost:5000/proxy-client:latest
+        image: proxy-client:latest
         ports:
         - containerPort: 8900
         env:

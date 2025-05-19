@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: shipping-service
-        image: localhost:5000/shipping-service:latest
+        image: shipping-service:latest
         ports:
         - containerPort: 8600
         env:
