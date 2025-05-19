@@ -28,8 +28,8 @@ pipeline {
                 script {
                     def services = [
                         'service-discovery',
-                        'cloud-config',
-                        'api-gateway'/*,
+                        'cloud-config'/*,
+                        'api-gateway',
                         'proxy-client',
                         'order-service',
                         'payment-service',
@@ -40,7 +40,7 @@ pipeline {
                     ]
                     for (svc in services) {
                         dir(svc) {
-                            //bat "mvnw.cmd clean package -DskipTests"
+                            bat "mvnw.cmd clean package -DskipTests"
                             bat "minikube image build -t ${svc}:latest ."
                         }
                     }
@@ -54,8 +54,8 @@ pipeline {
                     def services = [
                         'zipkin',
                         'service-discovery',
-                        'cloud-config',
-                        'api-gateway'/*,
+                        'cloud-config'/*,
+                        'api-gateway',
                         'proxy-client',
                         'order-service',
                         'payment-service',
