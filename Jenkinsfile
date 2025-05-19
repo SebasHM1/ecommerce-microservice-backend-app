@@ -50,7 +50,19 @@ pipeline {
 
         stage('Deploy to Minikube') {
             steps {
-                bat 'kubectl apply -f k8s/'
+                script {
+                    def services = [
+                        'service-discovery',
+                        'cloud-config',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service'
+                    ]
+                    for (svc in services) {
+                        bat "kubectl apply -f k8s/${svc}-deployment.yaml"
+                        bat "kubectl apply -f k8s/${svc}-service.yaml"
+                    }
+                }
             }
         }
     }
