@@ -41,7 +41,7 @@ pipeline {
                     for (svc in services) {
                         dir(svc) {
                             bat "mvnw.cmd clean package -DskipTests"
-                            bat "docker build -t ${svc}:latest ."
+                            bat "minikube image build -t ${svc}:latest ."
                         }
                     }
                 }
