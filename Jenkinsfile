@@ -52,7 +52,7 @@ pipeline {
             steps {
                 script {
                     def services = [
-                        'zipkin'
+                        'zipkin',
                         'service-discovery',
                         'cloud-config',
                         'api-gateway',
