@@ -68,7 +68,7 @@ pipeline {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
                         bat "kubectl apply -f k8s/${svc}-service.yaml"
                         // Forzar el reinicio del deployment
-                        bat "kubectl rollout restart deployment/${svc}"
+                        //bat "kubectl rollout restart deployment/${svc}"
                     }
                 }
             }
