@@ -1,5 +1,5 @@
-# Script para compilar todos los microservicios
-Write-Host "Compilando todos los microservicios..."
+# Script para compilar todos los microservicios o uno específico
+Write-Host "Compilando microservicios..."
 
 # Lista de proyectos
 $projects = @(
@@ -14,6 +14,17 @@ $projects = @(
     "user-service",
     "favourite-service"
 )
+
+# Si se pasa un argumento, solo compilar ese microservicio
+if ($args.Count -ge 1) {
+    $service = $args[0]
+    if ($projects -contains $service) {
+        $projects = @($service)
+    } else {
+        Write-Host "El microservicio '$service' no existe en la lista." -ForegroundColor Red
+        exit 1
+    }
+}
 
 # Compilar cada proyecto
 foreach ($project in $projects) {

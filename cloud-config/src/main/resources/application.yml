@@ -15,6 +15,14 @@ spring:
           uri: https://github.com/Salazq/cloud-config-server
           clone-on-start: true
 
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://service-discovery-container:8761/eureka}
+
 resilience4j:
   circuitbreaker:
     instances:
