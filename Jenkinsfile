@@ -31,12 +31,12 @@ pipeline {
                         'cloud-config',
                         'api-gateway',
                         'proxy-client',
-                        'order-service'/*,
+                        'order-service',
                         'payment-service',
                         'product-service',
                         'shipping-service',
                         'user-service',
-                        'favourite-service'*/
+                        'favourite-service'
                     ]
                     for (svc in services) {
                         dir(svc) {
@@ -57,11 +57,18 @@ pipeline {
                         'cloud-config',
                         'api-gateway',
                         'proxy-client',
-                        'order-service'
+                        'order-service',
+                        'payment-service',
+                        'product-service',
+                        'shipping-service',
+                        'user-service',
+                        'favourite-service'
                     ]
                     for (svc in services) {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
                         bat "kubectl apply -f k8s/${svc}-service.yaml"
+                        // Forzar el reinicio del deployment
+                        bat "kubectl rollout restart deployment/${svc}"
                     }
                 }
             }
