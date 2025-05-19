@@ -7,7 +7,7 @@ pipeline {
                 minikube status | findstr /C:"host: Running" >nul
                 if %ERRORLEVEL% NEQ 0 (
                     echo Minikube no está iniciado. Iniciando...
-                    minikube start --cpus=4 --memory=3800 
+                    minikube start --cpus=5 --memory=3800 
                 ) else (
                     echo Minikube ya está corriendo.
                 )
@@ -68,7 +68,7 @@ pipeline {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
                         bat "kubectl apply -f k8s/${svc}-service.yaml"
                         // Forzar el reinicio del deployment
-                        bat "kubectl rollout restart deployment/${svc}"
+                        //bat "kubectl rollout restart deployment/${svc}"
                     }
                 }
             }
