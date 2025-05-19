@@ -28,7 +28,7 @@ pipeline {
                 script {
                     def services = [
                         'service-discovery',
-                        'cloud-config'/*,
+                        'cloud-config',
                         'api-gateway',
                         'proxy-client',
                         'order-service',
@@ -36,11 +36,11 @@ pipeline {
                         'product-service',
                         'shipping-service',
                         'user-service',
-                        'favourite-service'*/
+                        'favourite-service'
                     ]
                     for (svc in services) {
                         dir(svc) {
-                            bat "mvnw.cmd clean package -DskipTests"
+                            //bat "mvnw.cmd clean package -DskipTests"
                             bat "minikube image build -t ${svc}:latest ."
                         }
                     }
@@ -54,7 +54,7 @@ pipeline {
                     def services = [
                         'zipkin',
                         'service-discovery',
-                        'cloud-config'/*,
+                        'cloud-config',
                         'api-gateway',
                         'proxy-client',
                         'order-service',
@@ -62,13 +62,13 @@ pipeline {
                         'product-service',
                         'shipping-service',
                         'user-service',
-                        'favourite-service' */
+                        'favourite-service' 
                     ]
                     for (svc in services) {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
                         bat "kubectl apply -f k8s/${svc}-service.yaml"
                         // Forzar el reinicio del deployment
-                        //bat "kubectl rollout restart deployment/${svc}"
+                        bat "kubectl rollout restart deployment/${svc}"
                     }
                 }
             }
