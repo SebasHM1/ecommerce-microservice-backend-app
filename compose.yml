@@ -1,25 +1,25 @@
 services:
 
-  zipkin-container:
+  zipkin:
     image: openzipkin/zipkin
-    container_name: zipkin-container
+    container_name: zipkin
     ports:
       - 9411:9411
     networks:
       - ecommerce-network        
 
-  service-discovery-container:
+  service-discovery:
     build:
       context: ./service-discovery
       dockerfile: Dockerfile
-    container_name: service-discovery-container
+    container_name: service-discovery
     ports:
       - 8761:8761
     depends_on:
-      - zipkin-container
+      - zipkin
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
     networks:
       - ecommerce-network
     healthcheck:
@@ -28,23 +28,21 @@ services:
       timeout: 5s
       retries: 10
 
-  cloud-config-container:
+  cloud-config:
     build:
       context: ./cloud-config
       dockerfile: Dockerfile
-    container_name: cloud-config-container
+    container_name: cloud-config
     depends_on:
-        zipkin-container:
+        zipkin:
           condition: service_healthy
-        service-discovery-container:
+        service-discovery:
           condition: service_healthy
-
-      
     ports:
       - 9296:9296
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
     networks:
       - ecommerce-network
     healthcheck:
@@ -53,156 +51,156 @@ services:
       timeout: 5s
       retries: 10
 
-  api-gateway-container:
+  api-gateway:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
-    container_name: api-gateway-container
+    container_name: api-gateway
     depends_on:
-      cloud-config-container:
+      cloud-config:
         condition: service_healthy
-      service-discovery-container:
+      service-discovery:
         condition: service_healthy
     ports:
       - 8080:8080
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://service-discovery-container:8761/eureka
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://service-discovery:8761/eureka
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
     networks:
       - ecommerce-network
 
-  proxy-client-container:
+  proxy-client:
     build:
       context: ./proxy-client
       dockerfile: Dockerfile
-    container_name: proxy-client-container
+    container_name: proxy-client
     ports:
       - 8900:8900
     depends_on:
-      cloud-config-container:
+      cloud-config:
         condition: service_healthy
-      service-discovery-container:
+      service-discovery:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
     networks:
       - ecommerce-network      
 
-  order-service-container:
+  order-service:
     build:
       context: ./order-service
       dockerfile: Dockerfile
-    container_name: order-service-container
+    container_name: order-service
     ports:
       - 8300:8300
     depends_on:
-      cloud-config-container:
+      cloud-config:
         condition: service_healthy
-      service-discovery-container:
+      service-discovery:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
     networks:
       - ecommerce-network     
 
-  payment-service-container:
+  payment-service:
     build:
       context: ./payment-service
       dockerfile: Dockerfile
-    container_name: payment-service-container
+    container_name: payment-service
     ports:
       - 8400:8400
     depends_on:
-      cloud-config-container:
+      cloud-config:
         condition: service_healthy
-      service-discovery-container:
+      service-discovery:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
     networks:
       - ecommerce-network     
 
-  # product-service-container:
+  # product-service:
   #   build:
   #     context: ./product-service
   #     dockerfile: Dockerfile
-  #   container_name: product-service-container
+  #   container_name: product-service
   #   ports:
   #     - 8500:8500
   #   depends_on:
-  #     cloud-config-container:
+  #     cloud-config:
   #       condition: service_healthy
-  #     service-discovery-container:
+  #     service-discovery:
   #       condition: service_healthy
   #   environment:
   #     - SPRING_PROFILES_ACTIVE=dev
-  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
   #   networks:
   #     - ecommerce-network     
 
-  # shipping-service-container:
+  # shipping-service:
   #   build:
   #     context: ./shipping-service
   #     dockerfile: Dockerfile
-  #   container_name: shipping-service-container
+  #   container_name: shipping-service
   #   ports:
   #     - 8600:8600
   #   depends_on:
-  #     cloud-config-container:
+  #     cloud-config:
   #       condition: service_healthy
-  #     service-discovery-container:
+  #     service-discovery:
   #       condition: service_healthy
   #   environment:
   #     - SPRING_PROFILES_ACTIVE=dev
-  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
   #   networks:
-  #     - ecommerce-network    
+  #     - ecommerce-network   
 
-  # user-service-container:
+  # user-service:
   #   build:
   #     context: ./user-service
   #     dockerfile: Dockerfile
-  #   container_name: user-service-container
+  #   container_name: user-service
   #   ports:
   #     - 8700:8700
   #   depends_on:
-  #     cloud-config-container:
+  #     cloud-config:
   #       condition: service_healthy
-  #     service-discovery-container:
+  #     service-discovery:
   #       condition: service_healthy
   #   environment:
   #     - SPRING_PROFILES_ACTIVE=dev
-  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
   #   networks:
   #     - ecommerce-network      
 
-  # favourite-service-container:
+  # favourite-service:
   #   build:
   #     context: ./favourite-service
   #     dockerfile: Dockerfile
-  #   container_name: favourite-service-container
+  #   container_name: favourite-service
   #   ports:
   #     - 8800:8800
   #   depends_on:
-  #     cloud-config-container:
+  #     cloud-config:
   #       condition: service_healthy
-  #     service-discovery-container:
+  #     service-discovery:
   #       condition: service_healthy
   #   environment:
   #     - SPRING_PROFILES_ACTIVE=dev
-  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin-container:9411/
-  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config-container:9296
+  #     - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+  #     - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
   #   networks:
   #     - ecommerce-network
 

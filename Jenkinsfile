@@ -29,14 +29,14 @@ pipeline {
                     def services = [
                         'service-discovery',
                         'cloud-config',
-                        'api-gateway',
+                        'api-gateway'/*,
                         'proxy-client',
                         'order-service',
                         'payment-service',
                         'product-service',
                         'shipping-service',
                         'user-service',
-                        'favourite-service'
+                        'favourite-service'*/
                     ]
                     for (svc in services) {
                         dir(svc) {
@@ -55,14 +55,14 @@ pipeline {
                         'zipkin',
                         'service-discovery',
                         'cloud-config',
-                        'api-gateway',
+                        'api-gateway'/*,
                         'proxy-client',
                         'order-service',
                         'payment-service',
                         'product-service',
                         'shipping-service',
                         'user-service',
-                        'favourite-service'
+                        'favourite-service' */
                     ]
                     for (svc in services) {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
