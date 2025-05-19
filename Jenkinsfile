@@ -7,7 +7,7 @@ pipeline {
                 minikube status | findstr /C:"host: Running" >nul
                 if %ERRORLEVEL% NEQ 0 (
                     echo Minikube no está iniciado. Iniciando...
-                    minikube start --cpus=5 --memory=3800 
+                    minikube start --cpus=6 --memory=3800 
                 ) else (
                     echo Minikube ya está corriendo.
                 )
@@ -32,11 +32,11 @@ pipeline {
                         'api-gateway',
                         'proxy-client',
                         'order-service',
-                        'payment-service',
                         'product-service',
+                        'user-service'/*,
+                        'payment-service',
                         'shipping-service',
-                        'user-service',
-                        'favourite-service'
+                        'favourite-service' */
                     ]
                     for (svc in services) {
                         dir(svc) {
@@ -58,11 +58,11 @@ pipeline {
                         'api-gateway',
                         'proxy-client',
                         'order-service',
-                        'payment-service',
                         'product-service',
+                        'user-service'/*,
+                        'payment-service',
                         'shipping-service',
-                        'user-service',
-                        'favourite-service' 
+                        'favourite-service' */ 
                     ]
                     for (svc in services) {
                         bat "kubectl apply -f k8s/${svc}-deployment.yaml"
