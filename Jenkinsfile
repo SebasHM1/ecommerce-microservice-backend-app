@@ -7,7 +7,7 @@ pipeline {
                 minikube status | findstr /C:"host: Running" >nul
                 if %ERRORLEVEL% NEQ 0 (
                     echo Minikube no está iniciado. Iniciando...
-                    minikube start --cpus=4 --memory=6144
+                    minikube start --cpus=4 --memory=3800 
                 ) else (
                     echo Minikube ya está corriendo.
                 )
