@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        REGISTRY = "dev"
+        REGISTRY = "localhost:58687"
     }
     stages {
         stage('Start Minikube if needed') {
