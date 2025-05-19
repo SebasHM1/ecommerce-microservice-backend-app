@@ -15,6 +15,7 @@ spec:
       containers:
       - name: favourite-service
         image: favourite-service:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8800
         env:

@@ -15,6 +15,7 @@ spec:
       containers:
       - name: shipping-service
         image: shipping-service:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8600
         env:

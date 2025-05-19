@@ -15,6 +15,7 @@ spec:
       containers:
       - name: cloud-config
         image: cloud-config:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 9296
         env:

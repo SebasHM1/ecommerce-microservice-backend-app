@@ -15,6 +15,7 @@ spec:
       containers:
       - name: service-discovery
         image: service-discovery:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8761
         env:
