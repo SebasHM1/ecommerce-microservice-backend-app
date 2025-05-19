@@ -4,6 +4,19 @@ pipeline {
         REGISTRY = "dev"
     }
     stages {
+        stage('Start Minikube if needed') {
+            steps {
+                bat '''
+                minikube status | findstr /C:"host: Running" >nul
+                if %ERRORLEVEL% NEQ 0 (
+                    echo Minikube no está iniciado. Iniciando...
+                    minikube start
+                ) else (
+                    echo Minikube ya está corriendo.
+                )
+                '''
+            }
+        }
         stage('Build & Push Images') {
             steps {
                 script {
@@ -22,9 +35,9 @@ pipeline {
                     for (svc in services) {
                         dir(svc) {
                             bat "mvnw.cmd clean package -DskipTests"
+                            bat "docker build -t %REGISTRY%/${svc}:latest ."
+                            bat "docker push %REGISTRY%/${svc}:latest"
                         }
-                        bat "docker build -t %REGISTRY%/${svc}:latest -f ${svc}/Dockerfile ${svc}"
-                        bat "docker push %REGISTRY%/${svc}:latest"
                     }
                 }
             }
