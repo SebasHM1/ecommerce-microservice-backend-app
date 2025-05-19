@@ -12,6 +12,13 @@ spec:
       labels:
         app: order-service
     spec:
+      initContainers:
+      - name: wait-for-cloud-config
+        image: curlimages/curl:7.85.0
+        command: ['sh', '-c', 'until curl -f http://cloud-config:9296/actuator/health; do echo waiting for cloud-config; sleep 5; done']
+      - name: wait-for-service-discovery
+        image: curlimages/curl:7.85.0
+        command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
       containers:
       - name: order-service
         image: order-service:latest
@@ -25,3 +32,10 @@ spec:
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://cloud-config:9296"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8300
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 10

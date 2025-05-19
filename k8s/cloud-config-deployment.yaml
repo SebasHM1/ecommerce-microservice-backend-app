@@ -12,6 +12,13 @@ spec:
       labels:
         app: cloud-config
     spec:
+      initContainers:
+      - name: wait-for-zipkin
+        image: curlimages/curl:7.85.0
+        command: ['sh', '-c', 'until curl -f http://zipkin:9411/; do echo waiting for zipkin; sleep 5; done']
+      - name: wait-for-service-discovery
+        image: curlimages/curl:7.85.0
+        command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
       containers:
       - name: cloud-config
         image: cloud-config:latest
@@ -23,3 +30,10 @@ spec:
           value: "dev"
         - name: SPRING_ZIPKIN_BASE_URL
           value: "http://zipkin:9411/"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 9296
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 10
