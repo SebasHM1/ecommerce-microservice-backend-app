@@ -22,9 +22,9 @@ pipeline {
                     for (svc in services) {
                         dir(svc) {
                             bat "mvnw.cmd clean package -DskipTests"
-                            bat "docker build -t %REGISTRY%/${svc}:latest ."
-                            bat "docker push %REGISTRY%/${svc}:latest"
                         }
+                        bat "docker build -t %REGISTRY%/${svc}:latest -f ${svc}/Dockerfile ${svc}"
+                        bat "docker push %REGISTRY%/${svc}:latest"
                     }
                 }
             }
