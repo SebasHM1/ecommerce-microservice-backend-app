@@ -3,28 +3,28 @@ pipeline {
     kubernetes {
         defaultContainer 'jnlp' 
         yaml '''
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: jnlp // Este es el nombre que Jenkins usa para inyectar el agente
-    image: maven:3.8-openjdk-17
-    // NO command, NO tty aquí. Jenkins se encarga.
-    // Los argumentos para el agente JNLP los provee Jenkins internamente (JENKINS_SECRET, JENKINS_NAME, etc.)
-    volumeMounts:
+    apiVersion: v1
+    kind: Pod
+    spec:
+    containers:
+    - name: jnlp // Este es el nombre que Jenkins usa para inyectar el agente
+        image: maven:3.8-openjdk-17
+        // NO command, NO tty aquí. Jenkins se encarga.
+        // Los argumentos para el agente JNLP los provee Jenkins internamente (JENKINS_SECRET, JENKINS_NAME, etc.)
+        volumeMounts:
+        - name: docker-sock
+        mountPath: /var/run/docker.sock
+    # - name: otrouncontenedor // Podrías tener otros contenedores si los necesitaras
+    #   image: algunaotraimagen
+    #   command: ['sleep', 'infinity']
+    volumes:
     - name: docker-sock
-      mountPath: /var/run/docker.sock
-  # - name: otrouncontenedor // Podrías tener otros contenedores si los necesitaras
-  #   image: algunaotraimagen
-  #   command: ['sleep', 'infinity']
-  volumes:
-  - name: docker-sock
-    hostPath:
-      path: /var/run/docker.sock
-      type: Socket
-'''
+        hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+    '''
+        }
     }
-}
     stages {
         stage('Install Prerequisite Tools') {
             steps {
