@@ -9,6 +9,8 @@ spec:
   containers:
   - name: jnlp
     image: openjdk:17-jdk-slim
+    command: ['sleep']
+    args: ['infinity']  
   - name: tools
     image: maven:3.8-openjdk-17
     command: ['sleep']
