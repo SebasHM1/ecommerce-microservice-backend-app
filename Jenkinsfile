@@ -1,14 +1,19 @@
 pipeline {
     agent {
         kubernetes {
-            defaultContainer 'jnlp'
+            defaultContainer 'tools'
             yaml '''
 apiVersion: v1
 kind: Pod
 spec:
   containers:
   - name: jnlp
+    image: openjdk:17-jdk-slim
+  - name: tools
     image: maven:3.8-openjdk-17
+    command: ['sleep']
+    args: ['infinity']
+    tty: true
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
@@ -21,9 +26,9 @@ spec:
         }
     }
     stages {
-        stage('Install Prerequisite Tools') {
+        stage('Install Prerequisite Tools in Tools Container') {
             steps {
-                container('jnlp') {
+                container('tools') {
                     sh '''
                     set -ex
 
@@ -65,53 +70,47 @@ spec:
 
         stage('Start Minikube if needed') {
             steps {
-                container('jnlp') {
-                    sh '''
-                    set -ex
-                    if ! minikube status | grep -q "host: Running"; then
-                        echo "Minikube no está iniciado. Iniciando..."
-                        minikube start --driver=docker --cpus=6 --memory=3800
-                    else
-                        echo "Minikube ya está corriendo."
-                    fi
-                    minikube status
-                    '''
-                }
+                sh '''
+                set -ex
+                if ! minikube status | grep -q "host: Running"; then
+                    echo "Minikube no está iniciado. Iniciando..."
+                    minikube start --driver=docker --cpus=6 --memory=3800
+                else
+                    echo "Minikube ya está corriendo."
+                fi
+                minikube status
+                '''
             }
         }
 
         stage('Set Docker to Minikube Env') {
             steps {
-                container('jnlp') {
-                    sh '''
-                    set -ex
-                    eval $(minikube -p minikube docker-env)
-                    docker ps
-                    '''
-                }
+                sh '''
+                set -ex
+                eval $(minikube -p minikube docker-env)
+                docker ps
+                '''
             }
         }
 
         stage('Build and Package Services') {
             steps {
-                container('jnlp') {
-                    script {
-                        def servicesToBuild = [
-                            'service-discovery',
-                            'cloud-config',
-                            'api-gateway',
-                            'proxy-client',
-                            'order-service',
-                            'product-service',
-                            'user-service',
-                            'shipping-service'
-                        ]
-                        for (svc in servicesToBuild) {
-                            dir(svc) {
-                                echo "Building and packaging ${svc}..."
-                                sh "chmod +x ./mvnw"
-                                sh "./mvnw clean package -DskipTests"
-                            }
+                script {
+                    def servicesToBuild = [
+                        'service-discovery',
+                        'cloud-config',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service',
+                        'product-service',
+                        'user-service',
+                        'shipping-service'
+                    ]
+                    for (svc in servicesToBuild) {
+                        dir(svc) {
+                            echo "Building and packaging ${svc}..."
+                            sh "chmod +x ./mvnw"
+                            sh "./mvnw clean package -DskipTests"
                         }
                     }
                 }
@@ -120,23 +119,21 @@ spec:
 
         stage('Build Images in Minikube Docker') {
             steps {
-                container('jnlp') {
-                    script {
-                        def servicesToImage = [
-                            'service-discovery',
-                            'cloud-config',
-                            'api-gateway',
-                            'proxy-client',
-                            'order-service',
-                            'product-service',
-                            'user-service',
-                            'shipping-service'
-                        ]
-                        for (svc in servicesToImage) {
-                            dir(svc) {
-                                echo "Building Docker image for ${svc}..."
-                                sh "minikube image build -t ${svc}:latest ."
-                            }
+                script {
+                    def servicesToImage = [
+                        'service-discovery',
+                        'cloud-config',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service',
+                        'product-service',
+                        'user-service',
+                        'shipping-service'
+                    ]
+                    for (svc in servicesToImage) {
+                        dir(svc) {
+                            echo "Building Docker image for ${svc}..."
+                            sh "minikube image build -t ${svc}:latest ."
                         }
                     }
                 }
@@ -145,25 +142,23 @@ spec:
 
         stage('Deploy to Minikube') {
             steps {
-                container('jnlp') {
-                    script {
-                        def servicesToDeploy = [
-                            'zipkin',
-                            'service-discovery',
-                            'cloud-config',
-                            'api-gateway',
-                            'proxy-client',
-                            'order-service',
-                            'product-service',
-                            'user-service',
-                            'shipping-service'
-                        ]
-                        for (svc in servicesToDeploy) {
-                            dir("k8s") {
-                                echo "Deploying ${svc}..."
-                                sh "kubectl apply -f ${svc}-deployment.yaml"
-                                sh "kubectl apply -f ${svc}-service.yaml"
-                            }
+                script {
+                    def servicesToDeploy = [
+                        'zipkin',
+                        'service-discovery',
+                        'cloud-config',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service',
+                        'product-service',
+                        'user-service',
+                        'shipping-service'
+                    ]
+                    for (svc in servicesToDeploy) {
+                        dir("k8s") {
+                            echo "Deploying ${svc}..."
+                            sh "kubectl apply -f ${svc}-deployment.yaml"
+                            sh "kubectl apply -f ${svc}-service.yaml"
                         }
                     }
                 }
@@ -172,9 +167,6 @@ spec:
     }
     post {
         always {
-            // El contexto para deleteDir aquí es el mismo que el del último 'container' o 'agent' usado.
-            // Si el pipeline falla antes de que un agente se asigne completamente, esto podría fallar.
-            // Pero si el pipeline corre hasta el final (o falla en un stage), debería funcionar.
             echo "Pipeline finished."
             deleteDir()
         }
