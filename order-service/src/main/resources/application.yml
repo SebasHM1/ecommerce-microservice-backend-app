@@ -29,18 +29,11 @@ resilience4j:
         sliding-window-type: COUNT_BASED
 
 management:
-  health:
-    circuitbreakers:
-      enabled: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
   endpoint:
     health:
       show-details: always
-
-
-
-
-
-
-
-
-

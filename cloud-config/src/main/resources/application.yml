@@ -41,14 +41,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
-  health:
-    circuitbreakers:
-      enabled: true
+        include: health, info
   endpoint:
     health:
       show-details: always
-
 
 
 

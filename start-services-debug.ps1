@@ -1,47 +1,45 @@
 # Script para iniciar servicios en orden específico
-Write-Host "Iniciando servicios en orden controlado..." -ForegroundColor Cyan
+Write-Host "`n==> Iniciando servicios en orden controlado..." -ForegroundColor Cyan
 
-# 1. Primero, detener y eliminar contenedores anteriores
-Write-Host "Deteniendo y eliminando contenedores anteriores..." -ForegroundColor Yellow
+# 1. Detener y eliminar contenedores anteriores
+Write-Host "1. Deteniendo y eliminando contenedores anteriores..." -ForegroundColor Yellow
 docker-compose down
 
-# 2. Limpiar imágenes y volúmenes no utilizados
-Write-Host "Limpiando recursos Docker no utilizados..." -ForegroundColor Yellow
+#2. (Opcional) Limpiar recursos Docker no utilizados
+Write-Host "2. Limpiando recursos Docker no utilizados..." -ForegroundColor Yellow
 docker system prune -f
 
-# 3. Iniciar Zipkin primero
-Write-Host "Iniciando Zipkin..." -ForegroundColor Green
-docker-compose up -d zipkin-container
+# 3. Iniciar Zipkin
+Write-Host "3. Iniciando Zipkin..." -ForegroundColor Green
+docker-compose up -d zipkin
 Start-Sleep -Seconds 5
 
-# 6. Iniciar Eureka (Service Discovery)
-Write-Host "Iniciando Eureka Service Discovery..." -ForegroundColor Green
-docker-compose up -d service-discovery-container
-Start-Sleep -Seconds 20  # Esperar a que Eureka esté completamente inicializado
 
+# 4. Iniciar Eureka (Service Discovery)
+Write-Host "4. Iniciando Eureka Service Discovery..." -ForegroundColor Green
+docker-compose up -d service-discovery
+Start-Sleep -Seconds 20
 
-# 4. Iniciar Cloud Config
-Write-Host "Iniciando Cloud Config Server..." -ForegroundColor Green
-docker-compose up -d cloud-config-container
-Start-Sleep -Seconds 20  # Esperar a que el Config Server esté completamente inicializado
-
-
-
+# 5. Iniciar Cloud Config Server
+Write-Host "5. Iniciando Cloud Config Server..." -ForegroundColor Green
+docker-compose up -d cloud-config
+Start-Sleep -Seconds 20
 
 # 5. Verificar que el Config Server está ejecutándose
-Write-Host "Verificando estado del Cloud Config Server..." -ForegroundColor Cyan
-docker logs cloud-config-container
+Write-Host "6. Verificando estado del Cloud Config Server..." -ForegroundColor Cyan
+docker logs cloud-config --tail 20
+
 
 # 7. Iniciar el resto de los servicios
-Write-Host "Iniciando el resto de los servicios..." -ForegroundColor Green
-docker-compose up -d
+Write-Host "7. Iniciando el resto de los servicios..." -ForegroundColor Green
+docker-compose up -d api-gateway user-service order-service payment-service product-service shipping-service proxy-client
 
 # 8. Mostrar los servicios en ejecución
-Write-Host "Servicios iniciados. Lista de contenedores en ejecución:" -ForegroundColor Cyan
+Write-Host "`n8. Servicios iniciados. Lista de contenedores en ejecución:" -ForegroundColor Cyan
 docker ps
 
-# 9. Mostrar los logs
-Write-Host "¿Deseas ver los logs en tiempo real? [S/N]" -ForegroundColor Yellow
+# 9. Mostrar los logs si el usuario lo desea
+Write-Host "`n¿Deseas ver los logs en tiempo real? [S/N]" -ForegroundColor Yellow
 $respuesta = Read-Host
 if ($respuesta -eq "S" -or $respuesta -eq "s") {
     docker-compose logs -f
