@@ -32,11 +32,14 @@ spec:
                     sh '''
                     set -ex
 
+                    # Alpine Linux usa 'apk'
+                    apk update
+
                     if ! command -v sudo &> /dev/null; then
-                        apt-get update && apt-get install -y sudo
+                        apk add --no-cache sudo
                     fi
                     
-                    apt-get update && apt-get install -y curl wget apt-transport-https ca-certificates gnupg git
+                    apk add --no-cache curl wget gnupg git
 
                     if ! command -v kubectl &> /dev/null; then
                         echo "Installing kubectl..."
@@ -58,7 +61,8 @@ spec:
 
                     if ! command -v docker &> /dev/null; then
                         echo "Installing Docker client..."
-                        apt-get install -y docker.io
+                        apk add --no-cache docker-cli # Para Alpine, el cliente Docker suele ser 'docker-cli'
+                                                    # o a veces solo 'docker' si es el paquete completo
                     else
                         echo "Docker client already installed"
                     fi
