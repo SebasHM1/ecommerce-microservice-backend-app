@@ -7,7 +7,7 @@ pipeline {
     kind: Pod
     spec:
     containers:
-    - name: jnlp // Este es el nombre que Jenkins usa para inyectar el agente
+    - name: jnlp
         image: maven:3.8-openjdk-17
         volumeMounts:
         - name: docker-sock
