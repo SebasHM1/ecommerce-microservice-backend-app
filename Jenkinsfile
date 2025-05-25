@@ -33,10 +33,10 @@ pipeline {
                         'proxy-client',
                         'order-service',
                         'product-service',
-                        'user-service'/*,
+                        'user-service',
+                        'shipping-service'/*,
                         'payment-service',
-                        'shipping-service',
-                        'favourite-service' */
+                        'favourite-service' */ 
                     ]
                     for (svc in services) {
                         dir(svc) {
@@ -59,9 +59,9 @@ pipeline {
                         'proxy-client',
                         'order-service',
                         'product-service',
-                        'user-service'/*,
+                        'user-service',
+                        'shipping-service'/*,
                         'payment-service',
-                        'shipping-service',
                         'favourite-service' */ 
                     ]
                     for (svc in services) {
