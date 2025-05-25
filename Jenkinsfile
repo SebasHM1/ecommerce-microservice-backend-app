@@ -3,45 +3,67 @@ pipeline {
     stages {
         stage('Start Minikube if needed') {
             steps {
-                bat '''
-                minikube status | findstr /C:"host: Running" >nul
-                if %ERRORLEVEL% NEQ 0 (
-                    echo Minikube no está iniciado. Iniciando...
-                    minikube start --cpus=6 --memory=3800 
-                ) else (
-                    echo Minikube ya está corriendo.
-                )
+                sh '''
+                if ! minikube status | grep -q "host: Running"; then
+                    echo "Minikube no está iniciado. Iniciando..."
+                    minikube start --cpus=6 --memory=3800
+                else
+                    echo "Minikube ya está corriendo."
+                fi
                 '''
             }
         }
 
         stage('Set Docker to Minikube Env') {
             steps {
-                bat '''
-                for /f "delims=" %%i in ('minikube docker-env --shell cmd') do call %%i
+                sh '''
+                eval $(minikube -p minikube docker-env)
                 '''
             }
         }
 
-        stage('Build Images in Minikube Docker') {
+        stage('Build and Package Services') {
             steps {
                 script {
-                    def services = [
+                    def servicesToBuild = [
                         'service-discovery',
                         'cloud-config',
                         'api-gateway',
                         'proxy-client',
                         'order-service',
                         'product-service',
-                        'user-service'/*,
-                        'payment-service',
-                        'shipping-service',
-                        'favourite-service' */
+                        'user-service',
+                        'shipping-service'
                     ]
-                    for (svc in services) {
+                    for (svc in servicesToBuild) {
                         dir(svc) {
-                            //bat "mvnw.cmd clean package -DskipTests"
-                            bat "minikube image build -t ${svc}:latest ."
+                            echo "Building and packaging ${svc}..."
+                            sh "./mvnw clean package -DskipTests"
+                            
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Images in Minikube Docker') {
+            steps {
+                script {
+                    def servicesToImage = [
+                        'service-discovery',
+                        'cloud-config',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service',
+                        'product-service',
+                        'user-service',
+                        'shipping-service'
+                    ]
+                    for (svc in servicesToImage) {
+                        dir(svc) {
+                            echo "Building Docker image for ${svc}..."
+                            sh "minikube image build -t ${svc}:latest ."
+            
                         }
                     }
                 }
@@ -51,24 +73,25 @@ pipeline {
         stage('Deploy to Minikube') {
             steps {
                 script {
-                    def services = [
-                        'zipkin',
+                    def servicesToDeploy = [
+                        'zipkin', 
                         'service-discovery',
                         'cloud-config',
                         'api-gateway',
                         'proxy-client',
                         'order-service',
                         'product-service',
-                        'user-service'/*,
-                        'payment-service',
-                        'shipping-service',
-                        'favourite-service' */ 
+                        'user-service',
+                        'shipping-service',/*
+                        'favourite-service',
+                        'payment-service'*/
                     ]
-                    for (svc in services) {
-                        bat "kubectl apply -f k8s/${svc}-deployment.yaml"
-                        bat "kubectl apply -f k8s/${svc}-service.yaml"
-                        // Forzar el reinicio del deployment
-                        //bat "kubectl rollout restart deployment/${svc}"
+                    for (svc in servicesToDeploy) {
+                        echo "Deploying ${svc}..."
+                        sh "kubectl apply -f k8s/${svc}-deployment.yaml"
+                        sh "kubectl apply -f k8s/${svc}-service.yaml"
+                        // Si quieres forzar el reinicio del deployment
+                        // sh "kubectl rollout restart deployment/${svc}"
                     }
                 }
             }
