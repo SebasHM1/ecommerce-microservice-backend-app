@@ -1,23 +1,23 @@
 pipeline {
     agent {
-    kubernetes {
-        defaultContainer 'jnlp' 
-        yaml '''
-    apiVersion: v1
-    kind: Pod
-    spec:
-    containers:
-    - name: jnlp
-        image: maven:3.8-openjdk-17
-        volumeMounts:
-        - name: docker-sock
-        mountPath: /var/run/docker.sock
-    volumes:
+        kubernetes {
+            defaultContainer 'jnlp'
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: jnlp
+    image: maven:3.8-openjdk-17
+    volumeMounts:
     - name: docker-sock
-        hostPath:
-        path: /var/run/docker.sock
-        type: Socket
-    '''
+      mountPath: /var/run/docker.sock
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+      type: Socket
+'''
         }
     }
     stages {
@@ -172,6 +172,9 @@ pipeline {
     }
     post {
         always {
+            // El contexto para deleteDir aquí es el mismo que el del último 'container' o 'agent' usado.
+            // Si el pipeline falla antes de que un agente se asigne completamente, esto podría fallar.
+            // Pero si el pipeline corre hasta el final (o falla en un stage), debería funcionar.
             echo "Pipeline finished."
             deleteDir()
         }
