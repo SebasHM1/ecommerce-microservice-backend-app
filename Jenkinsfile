@@ -32,18 +32,20 @@ spec:
                     sh '''
                     set -ex
 
-                    # Alpine Linux usa 'apk'
-                    apk update
-
-                    if ! command -v sudo &> /dev/null; then
-                        apk add --no-cache sudo
-                    fi
+                    # Reintentar con apt-get, la imagen maven:3.8-openjdk-17 corre como root
+                    apt-get update -qq # -qq para menos verbosidad
                     
-                    apk add --no-cache curl wget gnupg git
+                    # Instalar sudo solo si realmente se necesita para algo más adelante
+                    # y si el comando 'sudo' no existe. Por ahora, lo omitimos.
+                    # if ! command -v sudo &> /dev/null; then
+                    #    apt-get install -y -qq sudo
+                    # fi
+                    
+                    apt-get install -y -qq curl wget apt-transport-https ca-certificates gnupg git
 
                     if ! command -v kubectl &> /dev/null; then
                         echo "Installing kubectl..."
-                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                         install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     else
                         echo "kubectl already installed"
@@ -52,7 +54,7 @@ spec:
 
                     if ! command -v minikube &> /dev/null; then
                         echo "Installing Minikube CLI..."
-                        curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+                        curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         install -o root -g root -m 0755 minikube /usr/local/bin/minikube
                     else
                         echo "Minikube CLI already installed"
@@ -61,8 +63,7 @@ spec:
 
                     if ! command -v docker &> /dev/null; then
                         echo "Installing Docker client..."
-                        apk add --no-cache docker-cli # Para Alpine, el cliente Docker suele ser 'docker-cli'
-                                                    # o a veces solo 'docker' si es el paquete completo
+                        apt-get install -y -qq docker.io # Para Debian/Ubuntu
                     else
                         echo "Docker client already installed"
                     fi
