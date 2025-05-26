@@ -46,7 +46,7 @@ spec:
                     
                     # Instalar 'which' si no está, para depuración
                     if ! command -v which &> /dev/null; then
-                        dnf install -y which
+                        yum install -y which
                     fi
 
                     if ! command -v kubectl &> /dev/null; then
