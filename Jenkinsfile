@@ -35,7 +35,56 @@ spec:
     environment {
         DOCKERHUB_USER = 'sebashm1'
         DOCKERHUB_REPO_PREFIX = 'ecommerce-microservice-backend-app' 
+        K8S_NAMESPACE = "dev" // Default
+        SPRING_ACTIVE_PROFILE_APP = "dev" // Perfil Spring para la aplicación desplegada
+        IMAGE_TAG_SUFFIX = "-dev"
+        MAVEN_PROFILES = "" // Perfiles Maven a activar
     }
+
+    stages {
+        stage('Initialize Environment & Determine Test Strategy') {
+            steps {
+                script {
+                    // Determinar el entorno basado en la rama
+                    if (env.GIT_BRANCH ==~ /.*\/develop.*/) {
+                        echo "ENVIRONMENT: DEV"
+                        K8S_NAMESPACE = "dev"
+                        SPRING_ACTIVE_PROFILE_APP = "dev"
+                        IMAGE_TAG_SUFFIX = "-dev"
+                        // Para DEV: Correr unit tests (por defecto con `mvn package`), saltar ITs explícitamente
+                        MAVEN_PROFILES = "-Pskip-its" 
+                    } else if (env.GIT_BRANCH ==~ /.*\/staging.*/) {
+                        echo "ENVIRONMENT: STAGE"
+                        K8S_NAMESPACE = "stage"
+                        SPRING_ACTIVE_PROFILE_APP = "stage"
+                        IMAGE_TAG_SUFFIX = "-stage-${env.BUILD_NUMBER}"
+                        // Para STAGE: Correr unit tests Y tests de integración
+                        MAVEN_PROFILES = "-Prun-its" 
+                    } else if (env.GIT_BRANCH ==~ /.*\/master.*/) {
+                        echo "ENVIRONMENT: PROD"
+                        K8S_NAMESPACE = "prod"
+                        SPRING_ACTIVE_PROFILE_APP = "prod"
+                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        IMAGE_TAG_SUFFIX = "-prod-${gitCommit}" 
+                        // Para PROD: Correr unit tests Y tests de integración
+                        MAVEN_PROFILES = "-Prun-its"
+                    } else { // Feature branches
+                        echo "ENVIRONMENT: FEATURE (Dev-like)"
+                        K8S_NAMESPACE = "dev" 
+                        SPRING_ACTIVE_PROFILE_APP = "dev"
+                        def branchName = env.GIT_BRANCH.split('/').last().replaceAll("[^a-zA-Z0-9_.-]", "_") // Sanitize branch name
+                        IMAGE_TAG_SUFFIX = "-feature-${branchName}-${env.BUILD_NUMBER}"
+                        MAVEN_PROFILES = "-Pskip-its"
+                    }
+                    echo "K8S Namespace: ${K8S_NAMESPACE}"
+                    echo "Spring Profile for Deployed App: ${SPRING_ACTIVE_PROFILE_APP}"
+                    echo "Image Tag Suffix: ${IMAGE_TAG_SUFFIX}"
+                    echo "Maven Profiles for Tests: ${MAVEN_PROFILES}"
+                }
+            }
+        }
+    }
+
     stages {
         stage('Verify Tools and Minikube Context') {
             steps {
@@ -54,24 +103,26 @@ spec:
             }
         }
 
-        stage('Build and Package Services') {
+        stage('Compile, Test, and Package') { // Un solo stage para build y tests
             steps {
                 script {
-                    def servicesToBuild = [
-                        'service-discovery',
-                        'cloud-config',
-                        'api-gateway',
-                        'proxy-client',
-                        'order-service',
-                        'product-service',
-                        'user-service',
-                        'shipping-service'
+                    def servicesToProcess = [ /* tu lista de servicios */ 
+                        'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
+                        'order-service', 'product-service', 'user-service', 'shipping-service'
                     ]
-                    for (svc in servicesToBuild) {
+                    for (svc in servicesToProcess) {
                         dir(svc) {
-                            echo "Building and packaging ${svc}..."
+                            echo "Processing service: ${svc}"
                             sh "chmod +x ./mvnw"
-                            sh "./mvnw clean package -DskipTests"
+                            // Usamos 'mvn verify' para asegurar que se ejecuten todas las fases hasta Failsafe
+                            // Los perfiles activados controlarán QUÉ tests de Failsafe se ejecutan (o si se saltan).
+                            // Surefire (unit tests) siempre se ejecuta en la fase 'test' a menos que se salte con -DskipTests.
+                            // Tu perfil 'skip-its' solo afecta a Failsafe con la propiedad <skipITs>.
+                            // Para saltar unit tests también con un perfil, tendrías que usar <skipTests>true</skipTests> en ese perfil.
+                            
+                            // Si MAVEN_PROFILES contiene "-Pskip-its", solo se correrán unit tests (Surefire).
+                            // Si MAVEN_PROFILES contiene "-Prun-its", se correrán unit tests (Surefire) Y tests de integración (Failsafe).
+                            sh "./mvnw clean verify ${MAVEN_PROFILES}"
                         }
                     }
                 }
@@ -93,7 +144,8 @@ spec:
                             'order-service'    : 'order',
                             'product-service'  : 'product', // Necesitas un tag para 'product-service'
                             'user-service'     : 'users',
-                            'shipping-service' : 'shipping'
+                            'shipping-service' : 'shipping',
+                            'payment-service'  : 'payment'
                         ]
 
                         for (svcDirName in serviceToTagMap.keySet()) {
@@ -132,7 +184,8 @@ spec:
                         'order-service',
                         'product-service',
                         'user-service',
-                        'shipping-service'
+                        'shipping-service',
+                        'payment-service'
                     ]
                     for (svcName in servicesToDeployNames) {
                         // El nombre del archivo YAML podría ser diferente al nombre del servicio/tag

@@ -32,7 +32,7 @@ foreach ($project in $projects) {
     Set-Location -Path ".\$project"
     
     # Ejecutar Maven para compilar
-    & .\mvnw.cmd clean package
+    & .\mvnw.cmd clean verify -Prun-its
     
     # Verificar si la compilación fue exitosa
     if ($LASTEXITCODE -ne 0) {
