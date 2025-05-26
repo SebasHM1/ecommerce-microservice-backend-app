@@ -1,0 +1,70 @@
+server:
+  port: 0
+  servlet:
+    context-path: /user-service
+
+spring:
+  application:
+    name: USER-SERVICE
+  jackson:
+    serialization:
+      indent-output: true
+  
+  # Disable all cloud features for tests
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+      
+  # Disable service discovery for tests
+  eureka:
+    client:
+      enabled: false
+      register-with-eureka: false
+      fetch-registry: false
+    instance:
+      prefer-ip-address: false
+      
+  # Disable zipkin for tests
+  zipkin:
+    enabled: false
+    
+  # In-memory H2 database for tests
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # Disable flyway for tests
+  flyway:
+    enabled: false
+
+# Disable actuator endpoints for tests
+management:
+  endpoints:
+    enabled-by-default: false
+  endpoint:
+    health:
+      enabled: true
+
+# Test logging configuration
+logging:
+  level:
+    com.selimhorri.app: DEBUG
+    org.springframework.web: DEBUG
