@@ -32,26 +32,17 @@ spec:
                     sh '''
                     set -ex
 
-                    # Oracle Linux usa dnf (o yum)
-                    # Asegurarse de que los repositorios estén actualizados (dnf makecache o yum makecache)
-                    # No es estrictamente 'update' como en apt, sino asegurar que los metadatos estén frescos.
-                    dnf makecache --timer # --timer solo actualiza si el cache es viejo
+                    # Intentar con YUM
+                    yum makecache --timer
 
-                    # Instalar Maven, sudo, y otras herramientas necesarias
-                    # Nombres de paquetes pueden variar. ej. 'maven' puede ser 'apache-maven'
-                    # 'git' es usualmente 'git'
-                    # 'docker.io' sería 'docker-ce-cli' o similar de los repos de Docker.
-                    # Vamos a asumir nombres comunes, puede requerir ajuste.
-                    dnf install -y maven sudo curl wget git # Instalar 'which' para depuración futura
-                    
-                    # Instalar 'which' si no está, para depuración
+                    yum install -y maven sudo curl wget git yum-utils # yum-utils para config-manager
+
                     if ! command -v which &> /dev/null; then
                         yum install -y which
                     fi
 
                     if ! command -v kubectl &> /dev/null; then
                         echo "Installing kubectl..."
-                        # La instalación de kubectl es universal
                         curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                         install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     else
@@ -61,7 +52,6 @@ spec:
 
                     if ! command -v minikube &> /dev/null; then
                         echo "Installing Minikube CLI..."
-                        # La instalación de Minikube es universal
                         curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         install -o root -g root -m 0755 minikube /usr/local/bin/minikube
                     else
@@ -71,14 +61,9 @@ spec:
 
                     if ! command -v docker &> /dev/null; then
                         echo "Installing Docker client..."
-                        # Para Oracle Linux 8 / RHEL 8, se usa el repo de Docker
-                        # Esto es un poco más complejo que un simple 'dnf install docker.io'
-                        # Paso 1: Añadir el repositorio de Docker (si no está ya)
-                        # Puede que necesites 'dnf install -y dnf-utils device-mapper-persistent-data lvm2' para 'dnf config-manager'
-                        dnf install -y dnf-plugins-core
-                        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-                        # Paso 2: Instalar Docker CE CLI
-                        dnf install -y docker-ce-cli --nobest # --nobest para evitar problemas de dependencias si el daemon no se instala
+                        # Para Oracle Linux 8 / RHEL 8 con YUM
+                        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                        yum install -y docker-ce-cli --nobest 
                     else
                         echo "Docker client already installed"
                     fi
