@@ -106,7 +106,7 @@ spec:
                 script {
                     def servicesToProcess = [ /* tu lista de servicios */ 
                         'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
-                        'order-service', 'product-service', 'user-service', 'shipping-service'
+                        'order-service', 'product-service', 'user-service', 'shipping-service', 'payment-service'
                     ]
                     for (svc in servicesToProcess) {
                         dir(svc) {
