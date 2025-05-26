@@ -21,8 +21,8 @@ spec:
         command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
       containers:
       - name: proxy-client
-        image: proxy-client:latest
-        imagePullPolicy: Never
+        image: sebashm1/ecommerce-microservice-backend-app:proxy
+        imagePullPolicy: Always
         ports:
         - containerPort: 8900
         env:
@@ -32,10 +32,12 @@ spec:
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://cloud-config:9296"
+        - name: EUREKA_INSTANCE
+          value: "proxy-client"
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8900
-          initialDelaySeconds: 10
+          initialDelaySeconds: 25
           periodSeconds: 5
           failureThreshold: 10

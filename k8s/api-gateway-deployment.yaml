@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway
+  labels:    
+    app: api-gateway 
 spec:
   replicas: 1
   selector:
@@ -15,14 +17,14 @@ spec:
       initContainers:
       - name: wait-for-cloud-config
         image: curlimages/curl:7.85.0
-        command: ['sh', '-c', 'until curl -f http://cloud-config:9296/actuator/health; do echo waiting for cloud-config; sleep 5; done']
+        command: ['sh', '-c', 'until curl -f http://cloud-config:9296/actuator/health; do echo waiting for cloud-config; sleep 15; done']
       - name: wait-for-service-discovery
         image: curlimages/curl:7.85.0
-        command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
+        command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 15; done']
       containers:
       - name: api-gateway
-        image: api-gateway:latest
-        imagePullPolicy: Never
+        image: sebashm1/ecommerce-microservice-backend-app:gateway
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
@@ -34,10 +36,12 @@ spec:
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://cloud-config:9296"
+        - name: EUREKA_INSTANCE
+          value: "api-gateway"
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 10
+          initialDelaySeconds: 25
           periodSeconds: 5
           failureThreshold: 10

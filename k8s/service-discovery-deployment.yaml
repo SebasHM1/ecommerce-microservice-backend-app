@@ -18,8 +18,8 @@ spec:
         command: ['sh', '-c', 'until curl -f http://zipkin:9411/; do echo waiting for zipkin; sleep 5; done']
       containers:
       - name: service-discovery
-        image: service-discovery:latest
-        imagePullPolicy: Never
+        image: sebashm1/ecommerce-microservice-backend-app:discovery
+        imagePullPolicy: Always
         ports:
         - containerPort: 8761
         env:
@@ -27,10 +27,12 @@ spec:
           value: "dev"
         - name: SPRING_ZIPKIN_BASE_URL
           value: "http://zipkin:9411/"
+        - name: EUREKA_INSTANCE
+          value: "service-discovery"
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8761
-          initialDelaySeconds: 10
+          initialDelaySeconds: 25
           periodSeconds: 5
           failureThreshold: 10

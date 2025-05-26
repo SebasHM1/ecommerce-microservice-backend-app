@@ -14,13 +14,13 @@ spec:
     command: ['sleep']
     args: ['infinity']
     tty: true
-    resources: 
+    resources:
       requests:
         cpu: "500m" 
-        memory: "2Gi" 
+        memory: "1Gi" 
       limits:
-        cpu: "3"    
-        memory: "3Gi" 
+        cpu: "2"    
+        memory: "2Gi" 
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
@@ -31,6 +31,10 @@ spec:
       type: Socket
 '''
         }
+    }
+    environment {
+        DOCKERHUB_USER = 'sebashm1'
+        DOCKERHUB_REPO_PREFIX = 'ecommerce-microservice-backend-app' 
     }
     stages {
         stage('Verify Tools and Minikube Context') {
@@ -44,21 +48,11 @@ spec:
                 kubectl version --client
                 minikube version
                 echo "All tools verified."
-                
-                echo "--- KUBECTL CLUSTER INFO (Verificando conexión al API Server) ---"
-                # Este comando puede fallar por permisos del SA, pero indica que kubectl intenta conectar.
-                kubectl cluster-info || echo "kubectl cluster-info may fail due to SA permissions, this is often OK."
-                
-                echo "Minikube should be running as Jenkins is hosted within it."
-                # Verificar si 'docker ps' funciona aquí, indicando acceso al Docker daemon del nodo
                 echo "--- DOCKER PS (Verificando acceso al daemon Docker del nodo) ---"
                 docker ps 
                 '''
             }
         }
-
-        // No se necesita 'Set Docker to Minikube Env' si usamos 'docker build' directo
-        // y el socket está montado.
 
         stage('Build and Package Services') {
             steps {
@@ -84,26 +78,41 @@ spec:
             }
         }
 
-        stage('Build Docker Images and Load into Minikube') {
+        stage('Build and Push Docker Images to Registry') {
             steps {
-                script {
-                    def servicesToImage = [
-                        'service-discovery',
-                        'cloud-config',
-                        'api-gateway',
-                        'proxy-client',
-                        'order-service',
-                        'product-service',
-                        'user-service',
-                        'shipping-service'
-                    ]
-                    for (svc in servicesToImage) {
-                        dir(svc) {
-                            echo "Building Docker image for ${svc} using 'docker build'..."
-                            sh "docker build -t ${svc}:latest ."
-                            echo "Loading image ${svc}:latest into Minikube..."
-                            sh "minikube -p minikube image load ${svc}:latest" 
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
+                    script {
+                        sh "echo \$DOCKER_CRED_PSW | docker login -u \$DOCKER_CRED_USER --password-stdin"
+
+                        // Mapeo de nombre de servicio a tag de imagen (ajusta según tus tags)
+                        def serviceToTagMap = [
+                            'service-discovery': 'discovery',
+                            'cloud-config'     : 'config',
+                            'api-gateway'      : 'gateway',
+                            'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
+                            'order-service'    : 'order',
+                            'product-service'  : 'product', // Necesitas un tag para 'product-service'
+                            'user-service'     : 'users',
+                            'shipping-service' : 'shipping'
+                        ]
+
+                        for (svcDirName in serviceToTagMap.keySet()) {
+                            def imageTag = serviceToTagMap[svcDirName]
+                            if (imageTag) { // Solo procesa si hay un tag mapeado
+                                dir(svcDirName) { // Entra al directorio del servicio
+                                    def imageNameWithRegistry = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageTag}"
+                                    
+                                    echo "Building Docker image ${imageNameWithRegistry} from directory ${svcDirName}..."
+                                    sh "docker build -t ${imageNameWithRegistry} ."
+                                    
+                                    echo "Pushing image ${imageNameWithRegistry} to Docker Hub..."
+                                    sh "docker push ${imageNameWithRegistry}"
+                                }
+                            } else {
+                                echo "Skipping Docker build/push for service directory ${svcDirName} as no tag is mapped."
+                            }
                         }
+                        sh "docker logout"
                     }
                 }
             }
@@ -112,8 +121,10 @@ spec:
         stage('Deploy to Minikube') {
             steps {
                 script {
-                    def servicesToDeploy = [
-                        'zipkin',
+                    // El servicio zipkin se asume que es una imagen pública o ya está en el registro
+                    // y su deployment.yaml apunta a esa imagen.
+                    def servicesToDeployNames = [
+                        'zipkin', // Asegúrate que el deployment de zipkin use una imagen de un registro
                         'service-discovery',
                         'cloud-config',
                         'api-gateway',
@@ -123,11 +134,21 @@ spec:
                         'user-service',
                         'shipping-service'
                     ]
-                    for (svc in servicesToDeploy) {
+                    for (svcName in servicesToDeployNames) {
+                        // El nombre del archivo YAML podría ser diferente al nombre del servicio/tag
+                        // Asumimos que los archivos YAML son como <nombreServicio>-deployment.yaml
+                        // Ej. service-discovery-deployment.yaml, proxy-client-deployment.yaml
+                        def yamlBaseName = svcName 
+                        if (svcName == "proxy-client") { 
+                            // Si el archivo es proxy-deployment.yaml pero el servicio es proxy-client
+                            // podrías necesitar un mapeo o una lógica aquí.
+                            // Por ahora, asumimos que el nombre del servicio es el base para el YAML.
+                        }
+
                         dir("k8s") {
-                            echo "Deploying ${svc}..."
-                            sh "kubectl apply -f ${svc}-deployment.yaml"
-                            sh "kubectl apply -f ${svc}-service.yaml"
+                            echo "Deploying ${yamlBaseName}..."
+                            sh "kubectl apply -f ${yamlBaseName}-deployment.yaml"
+                            sh "kubectl apply -f ${yamlBaseName}-service.yaml"
                         }
                     }
                 }
@@ -137,7 +158,6 @@ spec:
     post {
         always {
             echo "Pipeline finished."
-            // Comenta deleteDir() hasta que todo el pipeline sea estable
             // deleteDir()
         }
     }

@@ -21,8 +21,8 @@ spec:
         command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
       containers:
       - name: shipping-service
-        image: shipping-service:latest
-        imagePullPolicy: Never
+        image: docker pull sebashm1/ecommerce-microservice-backend-app:shipping
+        imagePullPolicy: Always
         ports:
         - containerPort: 8600
         env:
@@ -32,10 +32,12 @@ spec:
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://cloud-config:9296"
+        - name: EUREKA_INSTANCE
+          value: "shipping-service"
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8600
-          initialDelaySeconds: 10
+          initialDelaySeconds: 25
           periodSeconds: 5
           failureThreshold: 10

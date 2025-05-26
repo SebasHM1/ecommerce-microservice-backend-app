@@ -22,7 +22,7 @@ spec:
       containers:
       - name: favourite-service
         image: favourite-service:latest
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         ports:
         - containerPort: 8800
         env:
@@ -36,6 +36,6 @@ spec:
           httpGet:
             path: /actuator/health
             port: 8800
-          initialDelaySeconds: 10
+          initialDelaySeconds: 25
           periodSeconds: 5
           failureThreshold: 10
