@@ -1,0 +1,41 @@
+# Usar una base Debian/Ubuntu explícita y estable
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Actualizar e instalar todas las dependencias de una vez
+RUN apt-get update && apt-get install -y -qq --no-install-recommends \
+    openjdk-17-jdk \
+    maven \
+    sudo \
+    curl \
+    wget \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    git \
+    # Para el cliente Docker
+    docker.io \
+    # Para kubectl (descarga e instala)
+    && echo "Installing kubectl..." \
+    && curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
+    && rm kubectl \
+    # Para Minikube CLI (descarga e instala)
+    && echo "Installing Minikube CLI..." \
+    && curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
+    && install -o root -g root -m 0755 minikube /usr/local/bin/minikube \
+    && rm minikube \
+    # Limpieza de apt
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Verificar instalaciones (opcional, pero bueno para la construcción)
+RUN echo "Java version:" && java -version \
+    && echo "Maven version:" && mvn -version \
+    && echo "Docker version:" && docker --version \
+    && echo "kubectl version:" && kubectl version --client \
+    && echo "Minikube version:" && minikube version
+
+# El ENTRYPOINT/CMD del contenedor 'tools' se anulará con 'sleep infinity' en el Jenkinsfile.
+# No es necesario definir un ENTRYPOINT o CMD aquí si solo es para herramientas.

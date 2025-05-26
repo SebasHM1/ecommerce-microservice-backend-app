@@ -10,7 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:jdk17 
   - name: tools
-    image: openjdk:17-jdk 
+    image: tu_usuario_dockerhub/jenkins-tools-completa:jdk17 
     command: ['sleep']
     args: ['infinity']
     tty: true
