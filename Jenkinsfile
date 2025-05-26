@@ -26,7 +26,7 @@ spec:
         }
     }
     stages {
-        stage('Verify Tools in Custom Image') {
+        stage('Verify Tools and Minikube Status') { // Cambiado el nombre del stage
             steps {
                 sh '''
                 set -ex
@@ -37,36 +37,35 @@ spec:
                 kubectl version --client
                 minikube version
                 echo "All tools verified."
+                
+                echo "Checking Minikube status (it should be running as Jenkins is in it)..."
+                minikube status
+                if ! minikube status | grep -q "host: Running"; then
+                    echo "ERROR: Minikube is not running or status cannot be determined!"
+                    echo "This pipeline expects to run within an active Minikube insulina."
+                    exit 1 # Falla el pipeline si Minikube no está como se espera
+                fi
+                echo "Minikube is running."
                 '''
             }
         }
 
-    
-        stage('Start Minikube if needed') {
-            steps {
-                sh '''
-                set -ex
-                if ! minikube status | grep -q "host: Running"; then
-                    echo "Minikube no está iniciado. Iniciando..."
-                    minikube start --driver=docker --cpus=6 --memory=3800
-                else
-                    echo "Minikube ya está corriendo."
-                fi
-                minikube status
-                '''
-            }
-        }
+        // EL STAGE 'Start Minikube if needed' HA SIDO REEMPLAZADO/FUSIONADO ARRIBA
 
         stage('Set Docker to Minikube Env') {
             steps {
                 sh '''
                 set -ex
-                eval $(minikube -p minikube docker-env)
-                docker ps
+                echo "Attempting to set Minikube Docker environment..."
+                # Usamos el Minikube existente donde corre este pod
+                eval $(minikube -p minikube docker-env) 
+                echo "Minikube Docker environment hopefully set."
+                docker ps 
                 '''
             }
         }
 
+        // ... El resto de los stages (Build, Deploy) permanecen igual ...
         stage('Build and Package Services') {
             steps {
                 script {
@@ -142,7 +141,7 @@ spec:
     post {
         always {
             echo "Pipeline finished."
-            // deleteDir() // Puedes volver a habilitarlo si quieres
+            // deleteDir()
         }
     }
 }
