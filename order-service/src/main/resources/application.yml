@@ -29,7 +29,6 @@ resilience4j:
         sliding-window-type: COUNT_BASED
 
 management:
-management:
   endpoints:
     web:
       exposure:

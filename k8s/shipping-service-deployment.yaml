@@ -21,7 +21,7 @@ spec:
         command: ['sh', '-c', 'until curl -f http://service-discovery:8761/actuator/health; do echo waiting for service-discovery; sleep 5; done']
       containers:
       - name: shipping-service
-        image: docker pull sebashm1/ecommerce-microservice-backend-app:shipping
+        image: sebashm1/ecommerce-microservice-backend-app:shipping
         imagePullPolicy: Always
         ports:
         - containerPort: 8600
