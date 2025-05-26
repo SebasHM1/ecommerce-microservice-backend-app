@@ -8,7 +8,7 @@ kind: Pod
 spec:
   containers:
   - name: jnlp
-    image: jenkins/inbound-agent:jdk17
+    image: jenkins/inbound-agent:jdk17 
   - name: tools
     image: maven:3.8-openjdk-17
     command: ['sleep']
@@ -173,7 +173,7 @@ spec:
     post {
         always {
             echo "Pipeline finished."
-            deleteDir()
+            // deleteDir() // Comentado temporalmente si sigue dando problemas
         }
     }
 }
