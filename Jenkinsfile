@@ -102,7 +102,7 @@ spec:
                             echo "Building Docker image for ${svc} using 'docker build'..."
                             sh "docker build -t ${svc}:latest ."
                             echo "Loading image ${svc}:latest into Minikube..."
-                            sh "minikube image load ${svc}:latest" 
+                            sh "minikube -p minikube image load ${svc}:latest" 
                         }
                     }
                 }
