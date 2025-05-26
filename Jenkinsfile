@@ -10,7 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:jdk17 
   - name: tools
-    image: openjdk:17-jdk # Sigue siendo esta, pero ahora sabemos que es Oracle Linux
+    image: openjdk:17-jdk 
     command: ['sleep']
     args: ['infinity']
     tty: true
