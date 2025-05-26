@@ -83,9 +83,7 @@ spec:
                 }
             }
         }
-    }
-
-    stages {
+    
         stage('Verify Tools and Minikube Context') {
             steps {
                 sh '''
