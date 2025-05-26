@@ -10,7 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:jdk17 
   - name: tools
-    image: openjdk:17-jdk 
+    image: openjdk:17-jdk # Sigue siendo esta, pero ahora sabemos que es Oracle Linux
     command: ['sleep']
     args: ['infinity']
     tty: true
@@ -26,56 +26,32 @@ spec:
         }
     }
     stages {
-
-        stage('DEBUG Tools Container Environment') {
-            steps {
-                container('tools') {
-                    sh '''
-                    set -ex
-                    echo "--- WHO AM I ---"
-                    whoami
-                    echo "--- PRINT ENV ---"
-                    printenv | sort
-                    echo "--- WHICH APT-GET ---"
-                    which apt-get || echo "apt-get not in PATH"
-                    echo "--- WHICH APK ---"
-                    which apk || echo "apk not in PATH"
-                    echo "--- WHICH YUM ---"
-                    which yum || echo "yum not in PATH"
-                    echo "--- WHICH DNF ---"
-                    which dnf || echo "dnf not in PATH"
-                    echo "--- CAT /etc/os-release ---"
-                    cat /etc/os-release || echo "/etc/os-release not found"
-                    echo "--- CAT /etc/issue ---"
-                    cat /etc/issue || echo "/etc/issue not found"
-                    echo "--- LS /usr/bin ---"
-                    ls -l /usr/bin/apt-get || echo "/usr/bin/apt-get not found"
-                    ls -l /usr/bin/apk || echo "/usr/bin/apk not found"
-                    echo "--- FIND APT-GET ---"
-                    find / -name apt-get -type f -ls 2>/dev/null || echo "apt-get not found anywhere by find"
-                    echo "--- DEBUG FINISHED ---"
-                    # Forzar un error para detener el pipeline aquí y ver los logs
-                    # exit 1 
-                    '''
-                }
-            }
-        }
-
-        /*
-
         stage('Install Prerequisite Tools in Tools Container') {
             steps {
                 container('tools') {
                     sh '''
                     set -ex
 
-                    apt-get update -qq
-                    
+                    # Oracle Linux usa dnf (o yum)
+                    # Asegurarse de que los repositorios estén actualizados (dnf makecache o yum makecache)
+                    # No es estrictamente 'update' como en apt, sino asegurar que los metadatos estén frescos.
+                    dnf makecache --timer # --timer solo actualiza si el cache es viejo
+
                     # Instalar Maven, sudo, y otras herramientas necesarias
-                    apt-get install -y -qq maven sudo curl wget apt-transport-https ca-certificates gnupg git
+                    # Nombres de paquetes pueden variar. ej. 'maven' puede ser 'apache-maven'
+                    # 'git' es usualmente 'git'
+                    # 'docker.io' sería 'docker-ce-cli' o similar de los repos de Docker.
+                    # Vamos a asumir nombres comunes, puede requerir ajuste.
+                    dnf install -y maven sudo curl wget git # Instalar 'which' para depuración futura
+                    
+                    # Instalar 'which' si no está, para depuración
+                    if ! command -v which &> /dev/null; then
+                        dnf install -y which
+                    fi
 
                     if ! command -v kubectl &> /dev/null; then
                         echo "Installing kubectl..."
+                        # La instalación de kubectl es universal
                         curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
                         install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
                     else
@@ -85,6 +61,7 @@ spec:
 
                     if ! command -v minikube &> /dev/null; then
                         echo "Installing Minikube CLI..."
+                        # La instalación de Minikube es universal
                         curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         install -o root -g root -m 0755 minikube /usr/local/bin/minikube
                     else
@@ -94,20 +71,26 @@ spec:
 
                     if ! command -v docker &> /dev/null; then
                         echo "Installing Docker client..."
-                        apt-get install -y -qq docker.io 
+                        # Para Oracle Linux 8 / RHEL 8, se usa el repo de Docker
+                        # Esto es un poco más complejo que un simple 'dnf install docker.io'
+                        # Paso 1: Añadir el repositorio de Docker (si no está ya)
+                        # Puede que necesites 'dnf install -y dnf-utils device-mapper-persistent-data lvm2' para 'dnf config-manager'
+                        dnf install -y dnf-plugins-core
+                        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                        # Paso 2: Instalar Docker CE CLI
+                        dnf install -y docker-ce-cli --nobest # --nobest para evitar problemas de dependencias si el daemon no se instala
                     else
                         echo "Docker client already installed"
                     fi
                     docker --version
                     
-                    # Verificar Maven
                     mvn -version
                     '''
                 }
             }
         }
 
-        // ... El resto de los stages no cambian ...
+        // RESTO DE LOS STAGES SIN CAMBIOS
         stage('Start Minikube if needed') {
             steps {
                 sh '''
@@ -204,12 +187,11 @@ spec:
                 }
             }
         }
-        */
     }
     post {
         always {
             echo "Pipeline finished."
-            // deleteDir() // Comentado hasta que los stages principales funcionen
+            // deleteDir() 
         }
     }
 }
