@@ -10,7 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:jdk17 
   - name: tools
-    image: tu_usuario_dockerhub/jenkins-tools-completa:jdk17 
+    image: sebashm1/jenkins-tools-completa:jdk17 
     command: ['sleep']
     args: ['infinity']
     tty: true
@@ -26,56 +26,22 @@ spec:
         }
     }
     stages {
-        stage('Install Prerequisite Tools in Tools Container') {
+        stage('Verify Tools in Custom Image') {
             steps {
-                container('tools') {
-                    sh '''
-                    set -ex
-
-                    # Intentar con YUM
-                    yum makecache --timer
-
-                    yum install -y maven sudo curl wget git yum-utils # yum-utils para config-manager
-
-                    if ! command -v which &> /dev/null; then
-                        yum install -y which
-                    fi
-
-                    if ! command -v kubectl &> /dev/null; then
-                        echo "Installing kubectl..."
-                        curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-                    else
-                        echo "kubectl already installed"
-                    fi
-                    kubectl version --client
-
-                    if ! command -v minikube &> /dev/null; then
-                        echo "Installing Minikube CLI..."
-                        curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-                        install -o root -g root -m 0755 minikube /usr/local/bin/minikube
-                    else
-                        echo "Minikube CLI already installed"
-                    fi
-                    minikube version
-
-                    if ! command -v docker &> /dev/null; then
-                        echo "Installing Docker client..."
-                        # Para Oracle Linux 8 / RHEL 8 con YUM
-                        yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-                        yum install -y docker-ce-cli --nobest 
-                    else
-                        echo "Docker client already installed"
-                    fi
-                    docker --version
-                    
-                    mvn -version
-                    '''
-                }
+                sh '''
+                set -ex
+                echo "Verifying tools in custom image..."
+                java -version
+                mvn -version
+                docker --version
+                kubectl version --client
+                minikube version
+                echo "All tools verified."
+                '''
             }
         }
 
-        // RESTO DE LOS STAGES SIN CAMBIOS
+    
         stage('Start Minikube if needed') {
             steps {
                 sh '''
@@ -176,7 +142,7 @@ spec:
     post {
         always {
             echo "Pipeline finished."
-            // deleteDir() 
+            // deleteDir() // Puedes volver a habilitarlo si quieres
         }
     }
 }
