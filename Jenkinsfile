@@ -14,13 +14,13 @@ spec:
     command: ['sleep']
     args: ['infinity']
     tty: true
-    resources: # Añadir recursos para el contenedor tools
+    resources: 
       requests:
         cpu: "500m" 
-        memory: "1Gi" 
-      limits:
-        cpu: "2"    
         memory: "2Gi" 
+      limits:
+        cpu: "3"    
+        memory: "3Gi" 
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
@@ -102,7 +102,6 @@ spec:
                             echo "Building Docker image for ${svc} using 'docker build'..."
                             sh "docker build -t ${svc}:latest ."
                             echo "Loading image ${svc}:latest into Minikube..."
-                            # Intenta sin perfil primero, si falla, considera añadir -p minikube si es tu perfil por defecto
                             sh "minikube image load ${svc}:latest" 
                         }
                     }
