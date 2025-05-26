@@ -14,6 +14,13 @@ spec:
     command: ['sleep']
     args: ['infinity']
     tty: true
+    resources: # Añadir recursos para el contenedor tools
+      requests:
+        cpu: "500m" 
+        memory: "1Gi" 
+      limits:
+        cpu: "2"    
+        memory: "2Gi" 
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
@@ -33,33 +40,26 @@ spec:
                 echo "Verifying tools in custom image..."
                 java -version
                 mvn -version
-                docker --version
+                docker --version 
                 kubectl version --client
                 minikube version
                 echo "All tools verified."
                 
-                echo "--- KUBECTL CONTEXT ---"
-                kubectl config current-context || echo "Could not get kubectl current-context"
-                kubectl cluster-info || echo "Could not get kubectl cluster-info"
+                echo "--- KUBECTL CLUSTER INFO (Verificando conexión al API Server) ---"
+                # Este comando puede fallar por permisos del SA, pero indica que kubectl intenta conectar.
+                kubectl cluster-info || echo "kubectl cluster-info may fail due to SA permissions, this is often OK."
                 
-                echo "--- MINIKUBE PROFILE LIST (EXPECTED TO FAIL OR BE EMPTY) ---"
-                minikube profile list || echo "minikube profile list failed as expected"
-
-                echo "--- ATTEMPTING MINIKUBE STATUS (EXPECTED TO FAIL ON PROFILE) ---"
-                minikube status || echo "minikube status failed as expected due to profile"
-
-                echo "Assuming Minikube is running because Jenkins is in it."
+                echo "Minikube should be running as Jenkins is hosted within it."
+                # Verificar si 'docker ps' funciona aquí, indicando acceso al Docker daemon del nodo
+                echo "--- DOCKER PS (Verificando acceso al daemon Docker del nodo) ---"
+                docker ps 
                 '''
             }
         }
 
-        stage('Set Docker to Minikube Env') {
-                steps {
-                echo 'Skipping minikube docker-env; Jenkins already inside Minikube.'
-            }
-        }
+        // No se necesita 'Set Docker to Minikube Env' si usamos 'docker build' directo
+        // y el socket está montado.
 
-        // ... El resto de los stages (Build, Deploy) permanecen igual ...
         stage('Build and Package Services') {
             steps {
                 script {
@@ -84,7 +84,7 @@ spec:
             }
         }
 
-        stage('Build Images in Minikube Docker') {
+        stage('Build Docker Images and Load into Minikube') {
             steps {
                 script {
                     def servicesToImage = [
@@ -99,8 +99,11 @@ spec:
                     ]
                     for (svc in servicesToImage) {
                         dir(svc) {
-                            echo "Building Docker image for ${svc}..."
-                            sh "minikube image build -t ${svc}:latest ."
+                            echo "Building Docker image for ${svc} using 'docker build'..."
+                            sh "docker build -t ${svc}:latest ."
+                            echo "Loading image ${svc}:latest into Minikube..."
+                            # Intenta sin perfil primero, si falla, considera añadir -p minikube si es tu perfil por defecto
+                            sh "minikube image load ${svc}:latest" 
                         }
                     }
                 }
@@ -135,6 +138,7 @@ spec:
     post {
         always {
             echo "Pipeline finished."
+            // Comenta deleteDir() hasta que todo el pipeline sea estable
             // deleteDir()
         }
     }
