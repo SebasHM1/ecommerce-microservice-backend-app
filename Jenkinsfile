@@ -10,7 +10,7 @@ spec:
   - name: jnlp
     image: jenkins/inbound-agent:jdk17 
   - name: tools
-    image: maven:3.8-openjdk-17
+    image: openjdk:17-jdk 
     command: ['sleep']
     args: ['infinity']
     tty: true
@@ -32,16 +32,10 @@ spec:
                     sh '''
                     set -ex
 
-                    # Reintentar con apt-get, la imagen maven:3.8-openjdk-17 corre como root
-                    apt-get update -qq # -qq para menos verbosidad
+                    apt-get update -qq
                     
-                    # Instalar sudo solo si realmente se necesita para algo más adelante
-                    # y si el comando 'sudo' no existe. Por ahora, lo omitimos.
-                    # if ! command -v sudo &> /dev/null; then
-                    #    apt-get install -y -qq sudo
-                    # fi
-                    
-                    apt-get install -y -qq curl wget apt-transport-https ca-certificates gnupg git
+                    # Instalar Maven, sudo, y otras herramientas necesarias
+                    apt-get install -y -qq maven sudo curl wget apt-transport-https ca-certificates gnupg git
 
                     if ! command -v kubectl &> /dev/null; then
                         echo "Installing kubectl..."
@@ -63,16 +57,20 @@ spec:
 
                     if ! command -v docker &> /dev/null; then
                         echo "Installing Docker client..."
-                        apt-get install -y -qq docker.io # Para Debian/Ubuntu
+                        apt-get install -y -qq docker.io 
                     else
                         echo "Docker client already installed"
                     fi
                     docker --version
+                    
+                    # Verificar Maven
+                    mvn -version
                     '''
                 }
             }
         }
 
+        // ... El resto de los stages no cambian ...
         stage('Start Minikube if needed') {
             steps {
                 sh '''
@@ -173,7 +171,7 @@ spec:
     post {
         always {
             echo "Pipeline finished."
-            // deleteDir() // Comentado temporalmente si sigue dando problemas
+            // deleteDir() // Comentado hasta que los stages principales funcionen
         }
     }
 }
