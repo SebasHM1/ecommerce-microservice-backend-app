@@ -26,6 +26,43 @@ spec:
         }
     }
     stages {
+
+        stage('DEBUG Tools Container Environment') {
+            steps {
+                container('tools') {
+                    sh '''
+                    set -ex
+                    echo "--- WHO AM I ---"
+                    whoami
+                    echo "--- PRINT ENV ---"
+                    printenv | sort
+                    echo "--- WHICH APT-GET ---"
+                    which apt-get || echo "apt-get not in PATH"
+                    echo "--- WHICH APK ---"
+                    which apk || echo "apk not in PATH"
+                    echo "--- WHICH YUM ---"
+                    which yum || echo "yum not in PATH"
+                    echo "--- WHICH DNF ---"
+                    which dnf || echo "dnf not in PATH"
+                    echo "--- CAT /etc/os-release ---"
+                    cat /etc/os-release || echo "/etc/os-release not found"
+                    echo "--- CAT /etc/issue ---"
+                    cat /etc/issue || echo "/etc/issue not found"
+                    echo "--- LS /usr/bin ---"
+                    ls -l /usr/bin/apt-get || echo "/usr/bin/apt-get not found"
+                    ls -l /usr/bin/apk || echo "/usr/bin/apk not found"
+                    echo "--- FIND APT-GET ---"
+                    find / -name apt-get -type f -ls 2>/dev/null || echo "apt-get not found anywhere by find"
+                    echo "--- DEBUG FINISHED ---"
+                    # Forzar un error para detener el pipeline aquí y ver los logs
+                    # exit 1 
+                    '''
+                }
+            }
+        }
+
+        /*
+
         stage('Install Prerequisite Tools in Tools Container') {
             steps {
                 container('tools') {
@@ -167,6 +204,7 @@ spec:
                 }
             }
         }
+        */
     }
     post {
         always {
