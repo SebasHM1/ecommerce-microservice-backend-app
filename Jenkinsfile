@@ -19,8 +19,8 @@ spec:
         cpu: "500m" 
         memory: "1Gi" 
       limits:
-        cpu: "3"    
-        memory: "3Gi" 
+        cpu: "2"    
+        memory: "2Gi" 
     volumeMounts:
     - name: docker-sock
       mountPath: /var/run/docker.sock
