@@ -105,8 +105,7 @@ spec:
             steps {
                 script {
                     def servicesToProcess = [ /* tu lista de servicios */ 
-                        'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
-                        'order-service', 'product-service', 'user-service', 'shipping-service', 'payment-service'
+                        'service-discovery', 'cloud-config',  'api-gateway', 'order-service', 'user-service' /*,'product-service', 'shipping-service', 'payment-service', 'proxy-client'*/
                     ]
                     for (svc in servicesToProcess) {
                         dir(svc) {
@@ -138,12 +137,12 @@ spec:
                             'service-discovery': 'discovery',
                             'cloud-config'     : 'config',
                             'api-gateway'      : 'gateway',
-                            'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
+                            //'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
                             'order-service'    : 'order',
-                            'product-service'  : 'product', // Necesitas un tag para 'product-service'
+                            //'product-service'  : 'product', // Necesitas un tag para 'product-service'
                             'user-service'     : 'users',
-                            'shipping-service' : 'shipping',
-                            'payment-service'  : 'payment'
+                            //'shipping-service' : 'shipping',
+                            //'payment-service'  : 'payment'
                         ]
 
                         for (svcDirName in serviceToTagMap.keySet()) {
@@ -174,16 +173,16 @@ spec:
                     // El servicio zipkin se asume que es una imagen pública o ya está en el registro
                     // y su deployment.yaml apunta a esa imagen.
                     def servicesToDeployNames = [
-                        'zipkin', // Asegúrate que el deployment de zipkin use una imagen de un registro
+                        'zipkin', 
                         'service-discovery',
                         'cloud-config',
                         'api-gateway',
-                        'proxy-client',
+                        //'proxy-client',
                         'order-service',
-                        'product-service',
+                        //'product-service',
                         'user-service',
-                        'shipping-service',
-                        'payment-service'
+                        //'shipping-service',
+                        //'payment-service'
                     ]
                     for (svcName in servicesToDeployNames) {
                         // El nombre del archivo YAML podría ser diferente al nombre del servicio/tag
