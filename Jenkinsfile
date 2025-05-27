@@ -105,7 +105,7 @@ spec:
             steps {
                 script {
                     def servicesToProcess = [ /* tu lista de servicios */ 
-                        'service-discovery', 'cloud-config',  'api-gateway', 'order-service', 'user-service' /*,'product-service', 'shipping-service', 'payment-service', 'proxy-client'*/
+                        'service-discovery', 'cloud-config',  'user-service',  /*'api-gateway', 'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'*/
                     ]
                     for (svc in servicesToProcess) {
                         dir(svc) {
@@ -136,9 +136,9 @@ spec:
                         def serviceToTagMap = [
                             'service-discovery': 'discovery',
                             'cloud-config'     : 'config',
-                            'api-gateway'      : 'gateway',
+                            //'api-gateway'      : 'gateway',
                             //'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
-                            'order-service'    : 'order',
+                            //'order-service'    : 'order',
                             //'product-service'  : 'product', // Necesitas un tag para 'product-service'
                             'user-service'     : 'users',
                             //'shipping-service' : 'shipping',
@@ -176,9 +176,9 @@ spec:
                         'zipkin', 
                         'service-discovery',
                         'cloud-config',
-                        'api-gateway',
+                        //'api-gateway',
                         //'proxy-client',
-                        'order-service',
+                        //'order-service',
                         //'product-service',
                         'user-service',
                         //'shipping-service',
