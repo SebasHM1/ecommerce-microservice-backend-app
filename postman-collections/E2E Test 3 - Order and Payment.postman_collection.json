@@ -1,0 +1,283 @@
+{
+	"info": {
+		"_postman_id": "159203e2-6971-4859-950e-f9634aa7e987",
+		"name": "E2E Test 3 - Order and Payment",
+		"description": "Testing the order creation for an existing user and paying for it",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30963428"
+	},
+	"item": [
+		{
+			"name": "Create Cart",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200);\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"createdCartResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"pm.environment.set(\"userId\", 1);\r",
+							"pm.environment.set(\"firstName\", \"selim\");\r",
+							"pm.environment.set(\"lastName\", \"horri\");\r",
+							"pm.environment.set(\"imageUrl\", \"https://bootdey.com/img/Content/avatar/avatar7.png\");\r",
+							"pm.environment.set(\"email\", \"springxyzabcboot@gmail.com\");\r",
+							"pm.environment.set(\"phone\", \"+21622125144\");"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"cartId\": 1234,\r\n    \"userId\": {{userId}},\r\n    \"user\": {\r\n        \"userId\": {{userId}},\r\n        \"firstName\": \"{{firstName}}\",\r\n        \"lastName\": \"{{lastName}}\",\r\n        \"imageUrl\": \"{{imageUrl}}\",\r\n        \"email\": \"{{email}}\",\r\n        \"phone\": \"{{phone}}\"\r\n    }\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/order-service/api/carts",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"order-service",
+						"api",
+						"carts"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Order",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let cartJson = JSON.parse(pm.collectionVariables.get(\"createdCartResponse\"));\r",
+							"\r",
+							"pm.environment.set(\"userId\", 1);\r",
+							"pm.environment.set(\"cartId\", cartJson.cartId);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200);\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"createdOrderResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"orderId\": 1234,\r\n    \"orderDate\": \"23-05-2025__02:05:55:547092\",\r\n    \"orderDesc\": \"Testing description for order 1\",\r\n    \"orderFee\": 1150,\r\n    \"cart\": {\r\n        \"cartId\": {{cartId}},\r\n        \"userId\": {{userId}}\r\n    }\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/order-service/api/orders",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"order-service",
+						"api",
+						"orders"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Payment",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let orderJson = JSON.parse(pm.collectionVariables.get(\"createdOrderResponse\"));\r",
+							"\r",
+							"pm.environment.set(\"orderId\", orderJson.orderId);\r",
+							"pm.environment.set(\"orderDate\", orderJson.orderDate);\r",
+							"pm.environment.set(\"orderDesc\", orderJson.orderDesc);\r",
+							"pm.environment.set(\"orderFee\", orderJson.orderFee);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200)\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"createdPaymentResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"paymentId\": {{$randomInt}},\r\n    \"isPayed\": true,\r\n    \"paymentStatus\": \"COMPLETED\",\r\n    \"order\": {\r\n        \"orderId\": {{orderId}},\r\n        \"orderDate\": \"{{orderDate}}\",\r\n        \"orderDesc\": \"{{orderDesc}}\",\r\n        \"orderFee\": {{orderFee}}\r\n    }\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/payment-service/api/payments",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"payment-service",
+						"api",
+						"payments"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Check Payment",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let paymentJson = JSON.parse(pm.collectionVariables.get(\"createdPaymentResponse\"));\r",
+							"\r",
+							"pm.environment.set(\"paymentId\", paymentJson.paymentId);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200);\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/payment-service/api/payments/{{paymentId}}",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"payment-service",
+						"api",
+						"payments",
+						"{{paymentId}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "{{API_GATEWAY_URL}}",
+			"value": "localhost:8080",
+			"type": "default"
+		},
+		{
+			"key": "createdCartResponse",
+			"value": ""
+		},
+		{
+			"key": "createdOrderResponse",
+			"value": ""
+		},
+		{
+			"key": "createdPaymentResponse",
+			"value": ""
+		}
+	]
+}

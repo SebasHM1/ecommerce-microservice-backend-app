@@ -39,6 +39,7 @@ spec:
         SPRING_ACTIVE_PROFILE_APP = "dev" // Perfil Spring para la aplicación desplegada
         IMAGE_TAG_SUFFIX = "-dev"
         MAVEN_PROFILES = "" // Perfiles Maven a activar
+        RUN_E2E_TESTS = "false" // Nueva variable para controlar tests E2E
     }
 
     stages {
@@ -53,6 +54,7 @@ spec:
                         IMAGE_TAG_SUFFIX = "-dev"
                         // Para DEV: Correr unit tests (por defecto con `mvn package`), saltar ITs explícitamente
                         MAVEN_PROFILES = "-Pskip-its" 
+                        RUN_E2E_TESTS = "true" // de pruebas
                     } else if (env.GIT_BRANCH ==~ /.*\/staging.*/) {
                         echo "ENVIRONMENT: STAGE"
                         K8S_NAMESPACE = "stage"
@@ -60,6 +62,7 @@ spec:
                         IMAGE_TAG_SUFFIX = "-stage-${env.BUILD_NUMBER}"
                         // Para STAGE: Correr unit tests Y tests de integración
                         MAVEN_PROFILES = "-Prun-its" 
+                        RUN_E2E_TESTS = "true" // E2E en Staging
                     } else if (env.GIT_BRANCH ==~ /.*\/master.*/) {
                         echo "ENVIRONMENT: PROD"
                         K8S_NAMESPACE = "prod"
@@ -75,11 +78,13 @@ spec:
                         def branchName = env.GIT_BRANCH.split('/').last().replaceAll("[^a-zA-Z0-9_.-]", "_") // Sanitize branch name
                         IMAGE_TAG_SUFFIX = "-feature-${branchName}-${env.BUILD_NUMBER}"
                         MAVEN_PROFILES = "-Pskip-its"
+                        RUN_E2E_TESTS = "true" // E2E en Prod (Master)
                     }
                     echo "K8S Namespace: ${K8S_NAMESPACE}"
                     echo "Spring Profile for Deployed App: ${SPRING_ACTIVE_PROFILE_APP}"
                     echo "Image Tag Suffix: ${IMAGE_TAG_SUFFIX}"
                     echo "Maven Profiles for Tests: ${MAVEN_PROFILES}"
+                    echo "Run E2E Tests: ${RUN_E2E_TESTS}"
                 }
             }
         }
@@ -94,6 +99,9 @@ spec:
                 docker --version 
                 kubectl version --client
                 minikube version
+                node -v || echo "NodeJS no encontrado"
+                npm -v || echo "NPM no encontrado"
+                newman -v || echo "Newman no encontrado"
                 echo "All tools verified."
                 echo "--- DOCKER PS (Verificando acceso al daemon Docker del nodo) ---"
                 docker ps 
@@ -105,7 +113,7 @@ spec:
             steps {
                 script {
                     def servicesToProcess = [ /* tu lista de servicios */ 
-                        'service-discovery', 'cloud-config',  'user-service',  /*'api-gateway', 'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'*/
+                        'service-discovery', 'cloud-config',  'user-service',  'api-gateway', 'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'
                     ]
                     for (svc in servicesToProcess) {
                         dir(svc) {
@@ -136,13 +144,13 @@ spec:
                         def serviceToTagMap = [
                             'service-discovery': 'discovery',
                             'cloud-config'     : 'config',
-                            //'api-gateway'      : 'gateway',
-                            //'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
-                            //'order-service'    : 'order',
-                            //'product-service'  : 'product', // Necesitas un tag para 'product-service'
+                            'api-gateway'      : 'gateway',
+                            'proxy-client'     : 'proxy', // Asumiendo que 'proxy-client' es 'proxy' en el tag
+                            'order-service'    : 'order',
+                            'product-service'  : 'product', // Necesitas un tag para 'product-service'
                             'user-service'     : 'users',
-                            //'shipping-service' : 'shipping',
-                            //'payment-service'  : 'payment'
+                            'shipping-service' : 'shipping',
+                            'payment-service'  : 'payment'
                         ]
 
                         for (svcDirName in serviceToTagMap.keySet()) {
@@ -176,13 +184,13 @@ spec:
                         'zipkin', 
                         'service-discovery',
                         'cloud-config',
-                        //'api-gateway',
-                        //'proxy-client',
-                        //'order-service',
-                        //'product-service',
+                        'api-gateway',
+                        'proxy-client',
+                        'order-service',
+                        'product-service',
                         'user-service',
-                        //'shipping-service',
-                        //'payment-service'
+                        'shipping-service',
+                        'payment-service'
                     ]
                     for (svcName in servicesToDeployNames) {
                         // El nombre del archivo YAML podría ser diferente al nombre del servicio/tag
@@ -204,7 +212,73 @@ spec:
                 }
             }
         }
+
+        stage('Run E2E Tests with Newman') {
+            when { expression { env.RUN_E2E_TESTS == "true" } }
+            steps {
+                dir('postman-collections') { // Entra al directorio donde están los archivos
+                    script {
+                        def collectionsToRun = [
+                            "E2E Test 1 - Users.postman_collection.json",
+                            "E2E Test 2 - Product.postman_collection.json",
+                            "E2E Test 3 - Order and Payment.postman_collection.json",
+                            "E2E Test 4 - Shipping.postman_collection.json",
+                            "E2E Test 5 - Delete Entities.postman_collection.json"
+                        ]
+
+                        // Usar el archivo de entorno global para Jenkins
+                        def environmentFile = "JenkinsGlobalE2E.postman_environment.json" 
+
+                        // Construir la URL base del API Gateway para el entorno actual
+                        // Esto asume que tu API Gateway está desplegado y se llama 'api-gateway'
+                        // en el K8S_NAMESPACE actual y escucha en el puerto 8080.
+                        def apiGatewayInternalUrl = "http://api-gateway.${K8S_NAMESPACE}.svc.cluster.local:8080"
+                        
+                        if (!fileExists(environmentFile)) {
+                            error("Archivo de entorno global de Postman '${environmentFile}' no encontrado en 'postman-collections/'.")
+                        }
+                        
+                        for (int i = 0; i < collectionsToRun.size(); i++) {
+                            def collectionFile = collectionsToRun[i]
+                            def reportFileNameBase = collectionFile.replace(".postman_collection.json", "").replaceAll("[^a-zA-Z0-9.-]", "_")
+                            def reportFile = "reporte-${reportFileNameBase}-${K8S_NAMESPACE}-${IMAGE_TAG_SUFFIX}-${env.BUILD_NUMBER}.html"
+
+                            echo "===================================================================="
+                            echo "Ejecutando Colección E2E: ${collectionFile}"
+                            echo "Usando Entorno Postman: ${environmentFile}"
+                            echo "Inyectando API_GATEWAY_URL: ${apiGatewayInternalUrl}"
+                            echo "Reporte se guardará en: ${reportFile}"
+                            echo "===================================================================="
+
+                            if (!fileExists(collectionFile)) {
+                                error("Archivo de colección de Postman '${collectionFile}' no encontrado en 'postman-collections/'.")
+                            }
+
+                            try {
+                                sh """
+                                    newman run "${collectionFile}" \
+                                    -e "${environmentFile}" \
+                                    --global-var "API_GATEWAY_URL=${apiGatewayInternalUrl}" \
+                                    -r cli,htmlextra \
+                                    --reporter-htmlextra-export "${reportFile}" \
+                                    --reporter-htmlextra-omitResponseBodies \
+                                    --reporter-htmlextra-showMarkdownLinks \
+                                    # Decide si quieres --suppress-exit-code o no
+                                    # Si lo quitas, el pipeline fallará si un test E2E falla.
+                                """
+                            } catch (Exception e) {
+                                echo "Error al ejecutar la colección ${collectionFile}: ${e.getMessage()}"
+                                currentBuild.result = 'UNSTABLE' // Marcar build como inestable si una colección falla
+                            } finally {
+                                archiveArtifacts artifacts: reportFile, allowEmptyArchive: true, fingerprint: true
+                            }
+                        } 
+                    }
+                }
+            }
+        }
     }
+
     post {
         always {
             echo "Pipeline finished."
