@@ -178,9 +178,6 @@ spec:
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
-                    // Crear el namespace si no existe (esto ya lo tenías y es bueno)
-                    sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
-                    
                     def servicesToDeploy = [ 
                         'zipkin', 
                         'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
