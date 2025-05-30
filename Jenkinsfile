@@ -39,7 +39,7 @@ spec:
         SPRING_ACTIVE_PROFILE_APP = "dev" // Perfil Spring para la aplicación desplegada
         IMAGE_TAG_SUFFIX = "-dev"
         MAVEN_PROFILES = "" // Perfiles Maven a activar
-        RUN_E2E_TESTS = "false" // Nueva variable para controlar tests E2E
+        RUN_E2E_TESTS = "true" // Nueva variable para controlar tests E2E
     }
 
     stages {
@@ -78,7 +78,7 @@ spec:
                         def branchName = env.GIT_BRANCH.split('/').last().replaceAll("[^a-zA-Z0-9_.-]", "_") // Sanitize branch name
                         IMAGE_TAG_SUFFIX = "-feature-${branchName}-${env.BUILD_NUMBER}"
                         MAVEN_PROFILES = "-Pskip-its"
-                        RUN_E2E_TESTS = "true" // E2E en Prod (Master)
+                        RUN_E2E_TESTS = "false" // E2E en Prod (Master)
                     }
                     echo "K8S Namespace: ${K8S_NAMESPACE}"
                     echo "Spring Profile for Deployed App: ${SPRING_ACTIVE_PROFILE_APP}"
