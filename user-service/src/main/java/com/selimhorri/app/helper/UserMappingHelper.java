@@ -8,28 +8,6 @@ import com.selimhorri.app.dto.UserDto;
 public interface UserMappingHelper {
 	
 	public static UserDto map(final User user) {
-
-		System.out.println("UserMappingHelper.map - Entrando para user ID: " + (user != null ? user.getUserId() : "USER ES NULL"));
-
-    if (user == null) return null; // Guarda por si acaso
-
-    Credential credentialEntity = user.getCredential();
-
-    if (credentialEntity == null) {
-        System.out.println("UserMappingHelper.map - user.getCredential() ES NULL para User ID: " + user.getUserId());
-    } else {
-        System.out.println("UserMappingHelper.map - user.getCredential() NO ES NULL para User ID: " + user.getUserId());
-        System.out.println("  Credential Entity Object: " + credentialEntity.toString()); // Puede ser útil
-        System.out.println("  Credential ID: " + credentialEntity.getCredentialId());
-        System.out.println("  Username: " + credentialEntity.getUsername());
-        System.out.println("  Password Hash (solo longitud si es sensible): " + (credentialEntity.getPassword() != null ? credentialEntity.getPassword().length() : "null"));
-        System.out.println("  Role: " + credentialEntity.getRoleBasedAuthority());
-        System.out.println("  isEnabled: " + credentialEntity.getIsEnabled());
-        System.out.println("  isAccountNonExpired: " + credentialEntity.getIsAccountNonExpired());
-        System.out.println("  isAccountNonLocked: " + credentialEntity.getIsAccountNonLocked());
-        System.out.println("  isCredentialsNonExpired: " + credentialEntity.getIsCredentialsNonExpired());
-    }
-
 		return UserDto.builder()
 				.userId(user.getUserId())
 				.firstName(user.getFirstName())
