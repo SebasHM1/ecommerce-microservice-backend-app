@@ -1,0 +1,443 @@
+{
+	"info": {
+		"_postman_id": "87283675-e3f7-46e0-8a68-60dccb611762",
+		"name": "E2E Test 1 - Users",
+		"description": "In this test we're going to test the user registration and assinging it a credential, confirming the operations for getting each one and adding a user Address.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30963428"
+	},
+	"item": [
+		{
+			"name": "Register New User",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {",
+							"    pm.expect(pm.response.code).to.eql(200);",
+							"});",
+							"",
+							"var jsonData = pm.response.json();",
+							"",
+							"// Guardamos toda la respuesta cruda",
+							"pm.collectionVariables.set(\"createdUserResponse\", JSON.stringify(jsonData));",
+							"",
+							"// Ahora seteamos las variables individuales para usar en siguientes requests",
+							"pm.collectionVariables.set(\"newUserId\", jsonData.userId);",
+							"pm.collectionVariables.set(\"newUserFirstName\", jsonData.firstName);",
+							"pm.collectionVariables.set(\"newUserLastName\", jsonData.lastName);",
+							"pm.collectionVariables.set(\"newUserImageUrl\", jsonData.imageUrl);",
+							"pm.collectionVariables.set(\"newUserEmail\", jsonData.email);",
+							"pm.collectionVariables.set(\"newUserPhone\", jsonData.phone);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"firstName\": \"Sebastian\",\n  \"lastName\": \"Hidalgo\",\n  \"email\": \"sebas.hidalgo@test.com\",\n  \"phone\": \"+3114322341\",\n  \"imageUrl\": \"http:image-sebastian-example.jpg\",\n  \"credential\": {\n    \"username\": \"sebastianhidalgo\",\n    \"password\": \"pass\",\n    \"roleBasedAuthority\": \"ROLE_USER\",\n    \"isEnabled\": true,\n    \"isAccountNonExpired\": true,\n    \"isAccountNonLocked\": true,\n    \"isCredentialsNonExpired\": true\n  }\n}"
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/users",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"users"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create Credential Copy",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let user = JSON.parse(pm.collectionVariables.get(\"createdUserResponse\"));\r",
+							"\r",
+							"// Datos del usuario\r",
+							"pm.environment.set(\"userId\", user.userId);\r",
+							"pm.environment.set(\"firstName\", user.firstName);\r",
+							"pm.environment.set(\"lastName\", user.lastName);\r",
+							"pm.environment.set(\"imageUrl\", user.imageUrl);\r",
+							"pm.environment.set(\"email\", user.email);\r",
+							"pm.environment.set(\"phone\", user.phone);\r",
+							"\r",
+							"// Datos de la credencial\r",
+							"pm.environment.set(\"credentialId\", user.credential.credentialId);\r",
+							"pm.environment.set(\"username\", user.credential.username);\r",
+							"pm.environment.set(\"password\", user.credential.password);\r",
+							"pm.environment.set(\"roleBasedAuthority\", user.credential.roleBasedAuthority);\r",
+							"pm.environment.set(\"isEnabled\", user.credential.isEnabled);\r",
+							"pm.environment.set(\"isAccountNonExpired\", user.credential.isAccountNonExpired);\r",
+							"pm.environment.set(\"isAccountNonLocked\", user.credential.isAccountNonLocked);\r",
+							"pm.environment.set(\"isCredentialsNonExpired\", user.credential.isCredentialsNonExpired);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200);\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"createdCredentialResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"credentialId\": {{credentialId}},\r\n    \"username\": \"{{username}}\",\r\n    \"password\": \"{{password}}\",\r\n    \"roleBasedAuthority\": \"{{roleBasedAuthority}}\",\r\n    \"isEnabled\": {{isEnabled}},\r\n    \"isAccountNonExpired\": {{isAccountNonExpired}},\r\n    \"isAccountNonLocked\": {{isAccountNonLocked}},\r\n    \"isCredentialsNonExpired\": {{isCredentialsNonExpired}},\r\n    \"user\": {\r\n        \"userId\": {{userId}},\r\n        \"firstName\": \"{{firstName}}\",\r\n        \"lastName\": \"{{lastName}}\",\r\n        \"imageUrl\": \"{{imageUrl}}\",\r\n        \"email\": \"{{email}}\",\r\n        \"phone\": \"{{phone}}\"\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/credentials",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"credentials"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Profile",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Profile retrieval successful', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Profile data correct', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('userId', parseInt(pm.collectionVariables.get('newUserId')));",
+							"    pm.expect(jsonData).to.have.property('firstName', 'Sebastian');",
+							"    pm.expect(jsonData).to.have.property('lastName', 'Hidalgo');",
+							"    pm.expect(jsonData).to.have.property('email', 'sebas.hidalgo@test.com');",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let userJson = JSON.parse(pm.collectionVariables.get(\"createdUserResponse\"));\r",
+							"\r",
+							"pm.environment.set(\"userId\", userJson.userId);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/users/{{newUserId}}",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"users",
+						"{{newUserId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Credentials",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Profile retrieval successful', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('User credential information present', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('username', 'sebastianhidalgo');",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/credentials/{{newUserId}}",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"credentials",
+						"{{newUserId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Add User Address",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Address creation successful', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Address data correct', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('addressId');",
+							"    pm.expect(jsonData).to.have.property('fullAddress', 'Calle 5 # 50-103');",
+							"    pm.expect(jsonData).to.have.property('postalCode', '732232');",
+							"    pm.expect(jsonData).to.have.property('city', 'Cali');",
+							"    ",
+							"    // Save address ID for subsequent tests",
+							"    pm.collectionVariables.set('addressId', jsonData.addressId);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"fullAddress\": \"Calle 5 # 50-103\",\n  \"postalCode\": \"732232\", \n  \"city\": \"Cali\",\n  \"user\": {\n    \"userId\": {{newUserId}},\n    \"firstName\": \"{{newUserFirstName}}\",\n    \"lastName\": \"{{newUserLastName}}\",\n    \"imageUrl\": \"{{newUserImageUrl}}\",\n    \"email\": \"{{newUserEmail}}\",\n    \"phone\": \"{{newUserPhone}}\"\n  }\n}"
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/address",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"address"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get User Addresses",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test('Address retrieval successful', function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test('Address list contains created address', function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('fullAddress', 'Calle 5 # 50-103');",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/user-service/api/address/{{addressId}}",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"user-service",
+						"api",
+						"address",
+						"{{addressId}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Collection-level pre-request script",
+					"console.log('Running User Registration and Profile Management E2E Test');"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Collection-level test script",
+					"pm.test('E2E Test Response Time Check', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(5000);",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "API_GATEWAY_URL",
+			"value": "localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "newUserId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "addressId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "newUserFirstName",
+			"value": ""
+		},
+		{
+			"key": "newUserLastName",
+			"value": ""
+		},
+		{
+			"key": "newUserImageUrl",
+			"value": ""
+		},
+		{
+			"key": "newUserEmail",
+			"value": ""
+		},
+		{
+			"key": "newUserPhone",
+			"value": ""
+		},
+		{
+			"key": "createdUserResponse",
+			"value": ""
+		},
+		{
+			"key": "createdCredentialResponse",
+			"value": ""
+		}
+	]
+}

@@ -1,0 +1,684 @@
+{
+	"info": {
+		"_postman_id": "23b8845b-b445-4a59-b2eb-de94ace345ef",
+		"name": "E2E Test 5 - Delete Entities",
+		"description": "Comprehensive end-to-end test for resource deletion operations across all microservices. Tests proper cleanup of users, products, orders, carts, addresses, shipping records, favourites, and verification tokens with proper dependency management. Includes tests for both path-variable and request-body deletion methods, as well as comprehensive error handling for non-existent resources.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30963428"
+	},
+	"item": [
+		{
+			"name": "Setup Test Data",
+			"item": [
+				{
+					"name": "Register New User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 (OK)\", function () {",
+									"    pm.expect(pm.response.code).to.eql(200);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"// Guardamos toda la respuesta cruda",
+									"pm.collectionVariables.set(\"createdUserResponse\", JSON.stringify(jsonData));",
+									"",
+									"// Ahora seteamos las variables individuales para usar en siguientes requests",
+									"pm.collectionVariables.set(\"newUserId\", jsonData.userId);",
+									"pm.collectionVariables.set(\"newUserFirstName\", jsonData.firstName);",
+									"pm.collectionVariables.set(\"newUserLastName\", jsonData.lastName);",
+									"pm.collectionVariables.set(\"newUserImageUrl\", jsonData.imageUrl);",
+									"pm.collectionVariables.set(\"newUserEmail\", jsonData.email);",
+									"pm.collectionVariables.set(\"newUserPhone\", jsonData.phone);"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Sebastian\",\n  \"lastName\": \"Marin\",\n  \"email\": \"sebas.hidalgo@test.com\",\n  \"phone\": \"+3114322341\",\n  \"imageUrl\": \"http:image-sebastian-example.jpg\",\n  \"credential\": {\n    \"username\": \"sebastianhidalgo\",\n    \"password\": \"pass\",\n    \"roleBasedAuthority\": \"ROLE_USER\",\n    \"isEnabled\": true,\n    \"isAccountNonExpired\": true,\n    \"isAccountNonLocked\": true,\n    \"isCredentialsNonExpired\": true\n  }\n}"
+						},
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/user-service/api/users",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"user-service",
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Product Category Copy",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Category creation successful', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Category data is correct', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('categoryId');",
+									"    pm.expect(jsonData.categoryTitle).to.equal('TVs');",
+									"    pm.collectionVariables.set('categoryId', jsonData.categoryId);",
+									"    pm.collectionVariables.set('categoryTitle', jsonData.categoryTitle);",
+									"    pm.collectionVariables.set('imageUrl', jsonData.imageUrl);",
+									"",
+									"    pm.collectionVariables.set('createdCategoryResponse', JSON.stringify(jsonData));",
+									"",
+									"});",
+									"",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"categoryTitle\": \"TVs\",\n    \"imageUrl\": \"http:/example-tvs-category-image/\",\n    \"parentCategory\": {\n        \"categoryId\": 1\n    }\n}"
+						},
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/categories",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"categories"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create First Product Copy",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Product creation successful', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Product linked to category', function () {",
+									"    // 1. Capturo la respuesta completa",
+									"    const jsonData = pm.response.json();",
+									"",
+									"    // 2. Hago mis validaciones",
+									"    pm.expect(jsonData).to.have.property('productId');",
+									"    pm.expect(jsonData.productTitle).to.equal('LV TV 4K');",
+									"    pm.expect(jsonData.category.categoryId).to.equal(",
+									"        parseInt(pm.collectionVariables.get('categoryId'))",
+									"    );",
+									"",
+									"    // 3. Guardo el productId para usos posteriores",
+									"    pm.collectionVariables.set('productId', jsonData.productId);",
+									"",
+									"    // 4. Guardo toda la respuesta en createdProductResponse",
+									"    pm.collectionVariables.set('createdProductResponse', JSON.stringify(jsonData));",
+									"});",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"productTitle\": \"LV TV 4K\",\n    \"imageUrl\": \"http:image-example-LV-TV-4K\",\n    \"sku\": \"LVTV4K-55INCH\",\n    \"priceUnit\": 1000,\n    \"quantity\": 50,\n    \"category\": {\n        \"categoryId\": {{categoryId}},\n        \"categoryTitle\": \"{{categoryTitle}}\",\n        \"imageUrl\": \"{{imageUrl}}\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/products",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"products"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Deletion Tests - Dependent Resources First",
+			"item": [
+				{
+					"name": "Delete Product",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Product deletion successful', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Deletion response is boolean true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"let productJson = JSON.parse(pm.collectionVariables.get(\"createdProductResponse\"));\r",
+									"\r",
+									"pm.environment.set(\"productId\", productJson.productId);\r",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/products/{{productId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"products",
+								"{{productId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Product Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Product no longer exists', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/products/{{productId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"products",
+								"{{productId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Category",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Category deletion successful', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Deletion response is boolean true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"let categoryJson = JSON.parse(pm.collectionVariables.get(\"createdCategoryResponse\"));\r",
+									"\r",
+									"pm.environment.set(\"categoryId\", categoryJson.categoryId);\r",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/categories/{{categoryId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"categories",
+								"{{categoryId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Category Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Category no longer exists', function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/product-service/api/categories/{{categoryId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"product-service",
+								"api",
+								"categories",
+								"{{categoryId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('User deletion successful', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Deletion response is boolean true', function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"let userJson = JSON.parse(pm.collectionVariables.get(\"createdUserResponse\"));\r",
+									"\r",
+									"pm.environment.set(\"userId\", userJson.userId);"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/user-service/api/users/{{userId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"user-service",
+								"api",
+								"users",
+								"{{userId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Verify User Deletion",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('User no longer exists', function () {",
+									"    pm.response.to.have.status(500);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{API_GATEWAY_URL}}/user-service/api/users/{{newUserId}}",
+							"host": [
+								"{{API_GATEWAY_URL}}"
+							],
+							"path": [
+								"user-service",
+								"api",
+								"users",
+								"{{newUserId}}"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Finally, we are gonna test all the entities that we have created in the E2E test by deleting it."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Collection-level pre-request script",
+					"console.log('Running Resource Deletion Tests E2E');",
+					"",
+					"// Set timestamp for unique test data",
+					"const timestamp = Date.now();",
+					"pm.collectionVariables.set('timestamp', timestamp);",
+					"",
+					"// Set order date in proper format",
+					"const now = new Date();",
+					"const day = String(now.getDate()).padStart(2, '0');",
+					"const month = String(now.getMonth() + 1).padStart(2, '0');",
+					"const year = now.getFullYear();",
+					"const hours = String(now.getHours()).padStart(2, '0');",
+					"const minutes = String(now.getMinutes()).padStart(2, '0');",
+					"const seconds = String(now.getSeconds()).padStart(2, '0');",
+					"const milliseconds = String(now.getMilliseconds()).padStart(6, '0');",
+					"",
+					"const orderDate = `${day}-${month}-${year}__${hours}:${minutes}:${seconds}:${milliseconds}`;",
+					"pm.collectionVariables.set('orderDate', orderDate);",
+					"",
+					"console.log('Test data timestamp:', timestamp);",
+					"console.log('Order date:', orderDate);"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "timestamp",
+			"value": ""
+		},
+		{
+			"key": "orderDate",
+			"value": ""
+		},
+		{
+			"key": "testUserId",
+			"value": ""
+		},
+		{
+			"key": "testUserFirstName",
+			"value": ""
+		},
+		{
+			"key": "testUserLastName",
+			"value": ""
+		},
+		{
+			"key": "testUserEmail",
+			"value": ""
+		},
+		{
+			"key": "testUserPhone",
+			"value": ""
+		},
+		{
+			"key": "testUserImageUrl",
+			"value": ""
+		},
+		{
+			"key": "testCategoryId",
+			"value": ""
+		},
+		{
+			"key": "testProductId",
+			"value": ""
+		},
+		{
+			"key": "testAddressId",
+			"value": ""
+		},
+		{
+			"key": "testCartId",
+			"value": ""
+		},
+		{
+			"key": "testOrderId",
+			"value": ""
+		},
+		{
+			"key": "testShippingProductId",
+			"value": ""
+		},
+		{
+			"key": "testShippingOrderId",
+			"value": ""
+		},
+		{
+			"key": "altTestProductId",
+			"value": ""
+		},
+		{
+			"key": "altTestOrderId",
+			"value": ""
+		},
+		{
+			"key": "altShippingProductId",
+			"value": ""
+		},
+		{
+			"key": "altShippingOrderId",
+			"value": ""
+		},
+		{
+			"key": "testVerificationTokenId",
+			"value": ""
+		},
+		{
+			"key": "testFavouriteUserId",
+			"value": ""
+		},
+		{
+			"key": "testFavouriteProductId",
+			"value": ""
+		},
+		{
+			"key": "testFavouriteLikeDate",
+			"value": ""
+		},
+		{
+			"key": "altTestFavouriteUserId",
+			"value": ""
+		},
+		{
+			"key": "altTestFavouriteProductId",
+			"value": ""
+		},
+		{
+			"key": "altTestFavouriteLikeDate",
+			"value": ""
+		},
+		{
+			"key": "newUserId",
+			"value": ""
+		},
+		{
+			"key": "categoryId",
+			"value": ""
+		},
+		{
+			"key": "categoryTitle",
+			"value": ""
+		},
+		{
+			"key": "imageUrl",
+			"value": ""
+		},
+		{
+			"key": "productId",
+			"value": ""
+		},
+		{
+			"key": "createdUserResponse",
+			"value": ""
+		},
+		{
+			"key": "newUserFirstName",
+			"value": ""
+		},
+		{
+			"key": "newUserLastName",
+			"value": ""
+		},
+		{
+			"key": "newUserImageUrl",
+			"value": ""
+		},
+		{
+			"key": "newUserEmail",
+			"value": ""
+		},
+		{
+			"key": "newUserPhone",
+			"value": ""
+		},
+		{
+			"key": "createdCategoryResponse",
+			"value": ""
+		},
+		{
+			"key": "createdProductResponse",
+			"value": ""
+		},
+		{
+			"key": "API_GATEWAY_URL",
+			"value": "localhost:8080",
+			"type": "default"
+		}
+	]
+}

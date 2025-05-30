@@ -26,16 +26,28 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     && curl -sLo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
     && install -o root -g root -m 0755 minikube /usr/local/bin/minikube \
     && rm minikube \
-    # Limpieza de apt
+    # Configurar NodeSource para Node.js 18.x (o 16.x, 20.x, según prefieras, >=16)
+    && echo "Setting up NodeSource repository for Node.js..." \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
+    # Instalar Node.js (esto también instalará npm)
+    && echo "Installing Node.js..." \
+    && apt-get install -y -qq nodejs \
+    # Instalar Newman y htmlextra reporter globalmente usando npm
+    && echo "Installing Newman and htmlextra reporter..." \
+    && npm install -g newman newman-reporter-htmlextra \
+    # Limpieza de apt y npm cache
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && npm cache clean --force
 
-# Verificar instalaciones (opcional, pero bueno para la construcción)
+# Verificar instalaciones
 RUN echo "Java version:" && java -version \
     && echo "Maven version:" && mvn -version \
     && echo "Docker version:" && docker --version \
     && echo "kubectl version:" && kubectl version --client \
-    && echo "Minikube version:" && minikube version
+    && echo "Minikube version:" && minikube version \
+    && echo "Node.js version:" && node -v \
+    && echo "npm version:" && npm -v \
+    && echo "Newman version:" && newman -v
 
 # El ENTRYPOINT/CMD del contenedor 'tools' se anulará con 'sleep infinity' en el Jenkinsfile.
-# No es necesario definir un ENTRYPOINT o CMD aquí si solo es para herramientas.

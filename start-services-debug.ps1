@@ -32,7 +32,8 @@ docker logs cloud-config --tail 20
 
 # 7. Iniciar el resto de los servicios
 Write-Host "7. Iniciando el resto de los servicios..." -ForegroundColor Green
-docker-compose up -d api-gateway user-service order-service payment-service product-service shipping-service proxy-client
+docker-compose up -d api-gateway proxy-client order-service product-service user-service shipping-service payment-service
+# No iniciados:  y favourite-service
 
 # 8. Mostrar los servicios en ejecución
 Write-Host "`n8. Servicios iniciados. Lista de contenedores en ejecución:" -ForegroundColor Cyan
