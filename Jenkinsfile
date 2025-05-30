@@ -175,38 +175,77 @@ spec:
             }
         }
 
-        stage('Deploy to Minikube') {
+        stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
-                    // El servicio zipkin se asume que es una imagen pública o ya está en el registro
-                    // y su deployment.yaml apunta a esa imagen.
-                    def servicesToDeployNames = [
+                    // Crear el namespace si no existe (esto ya lo tenías y es bueno)
+                    sh "kubectl create namespace ${K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                    
+                    def servicesToDeploy = [ 
                         'zipkin', 
-                        'service-discovery',
-                        'cloud-config',
-                        'api-gateway',
-                        'proxy-client',
-                        'order-service',
-                        'product-service',
-                        'user-service',
-                        'shipping-service',
-                        'payment-service'
+                        'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
+                        'order-service', 'product-service', 'user-service', 'shipping-service',
+                        'payment-service', 'favourite-service'
                     ]
-                    for (svcName in servicesToDeployNames) {
-                        // El nombre del archivo YAML podría ser diferente al nombre del servicio/tag
-                        // Asumimos que los archivos YAML son como <nombreServicio>-deployment.yaml
-                        // Ej. service-discovery-deployment.yaml, proxy-client-deployment.yaml
-                        def yamlBaseName = svcName 
-                        if (svcName == "proxy-client") { 
-                            // Si el archivo es proxy-deployment.yaml pero el servicio es proxy-client
-                            // podrías necesitar un mapeo o una lógica aquí.
-                            // Por ahora, asumimos que el nombre del servicio es el base para el YAML.
+                    def serviceDirToImageBaseTag = [
+                        'service-discovery': 'discovery', 'cloud-config': 'config',
+                        'api-gateway': 'gateway', 'proxy-client': 'proxy',
+                        'order-service': 'order', 'product-service': 'product',
+                        'user-service': 'users', 'shipping-service': 'shipping',
+                        'payment-service': 'payment', 'favourite-service': 'favourite'
+                    ]
+
+                    for (yamlBaseName in servicesToDeploy) {
+                        String deploymentFile = "k8s/${yamlBaseName}-deployment.yaml"
+                        String serviceFile = "k8s/${yamlBaseName}-service.yaml"
+
+                        if (fileExists(deploymentFile)) {
+                            echo "Processing ${deploymentFile} for namespace ${K8S_NAMESPACE}"
+                            def originalDeploymentContent = readFile(file: deploymentFile)
+                            String imageToDeployInK8s
+                            String processedDeploymentContent = originalDeploymentContent
+
+                            if (yamlBaseName == "zipkin") {
+                                imageToDeployInK8s = "openzipkin/zipkin:latest" 
+                                processedDeploymentContent = originalDeploymentContent.replaceAll(~"image: openzipkin/zipkin:.*", "image: ${imageToDeployInK8s}")
+                                .replaceAll(~"image: IMAGE_PLACEHOLDER_ZIPKIN", "image: ${imageToDeployInK8s}")
+                            } else {
+                                def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
+                                if (imageBaseTag == null) {
+                                    echo "ADVERTENCIA: No se encontró tag base para ${yamlBaseName}. El YAML no será modificado para la imagen."
+                                } else {
+                                    def finalImageTag = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
+                                    imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
+                                    String imageLinePattern = "image: ${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}.*"
+                                    String newLineForImage = "image: ${imageToDeployInK8s}"
+
+                                    if (originalDeploymentContent.contains(DOCKERHUB_USER + "/" + DOCKERHUB_REPO_PREFIX + ":" + imageBaseTag)) {
+                                       processedDeploymentContent = originalDeploymentContent.replaceAll(imageLinePattern, newLineForImage)
+                                    } else {
+                                       processedDeploymentContent = originalDeploymentContent.replaceAll(~"image: IMAGE_PLACEHOLDER_FOR_SERVICE", newLineForImage)
+                                    }
+                                    if (processedDeploymentContent == originalDeploymentContent) {
+                                        echo "ADVERTENCIA: El reemplazo de imagen no tuvo efecto para ${yamlBaseName}."
+                                    }
+                                }
+                            }
+                            
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_PROFILE_FOR_APP}\"")
+
+                            writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
+                            // MODIFICACIÓN AQUÍ: Añadir -n ${K8S_NAMESPACE}
+                            sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
+                            sh "rm processed-deployment.yaml"
+                            
+                        } else {
+                            echo "Deployment file ${deploymentFile} not found for ${yamlBaseName}."
                         }
 
-                        dir("k8s") {
-                            echo "Deploying ${yamlBaseName}..."
-                            sh "kubectl apply -f ${yamlBaseName}-deployment.yaml"
-                            sh "kubectl apply -f ${yamlBaseName}-service.yaml"
+                        if (fileExists(serviceFile)) {
+                            // MODIFICACIÓN AQUÍ: Añadir -n ${K8S_NAMESPACE}
+                            sh "kubectl apply -f ${serviceFile} -n ${K8S_NAMESPACE}"
+                        } else {
+                            echo "Service file ${serviceFile} not found for ${yamlBaseName}."
                         }
                     }
                 }
