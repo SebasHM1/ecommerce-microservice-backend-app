@@ -134,6 +134,8 @@ spec:
             }
         }
 
+
+        /*
         stage('Build and Push Docker Images to Registry') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
@@ -174,6 +176,8 @@ spec:
                 }
             }
         }
+
+        */
 
         stage('Deploy to Kubernetes Environment') {
             steps {
@@ -227,7 +231,7 @@ spec:
                                 }
                             }
                             
-                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_PROFILE_FOR_APP}\"")
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_ACTIVE_PROFILE_APP}\"")
 
                             writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
                             // MODIFICACIÓN AQUÍ: Añadir -n ${K8S_NAMESPACE}
