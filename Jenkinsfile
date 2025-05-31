@@ -110,7 +110,6 @@ spec:
         }
 
         
-        /*
         stage('Compile, Test, and Package') { // Un solo stage para build y tests
             steps {
                 script {
@@ -178,8 +177,6 @@ spec:
                 }
             }
         }
-
-        */
 
         stage('Deploy to Kubernetes Environment') {
             steps {
