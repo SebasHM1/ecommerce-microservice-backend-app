@@ -184,6 +184,8 @@ spec:
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
+                    import java.util.regex.Pattern
+
                     def servicesToDeploy = [ 
                         'zipkin', 
                         'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
