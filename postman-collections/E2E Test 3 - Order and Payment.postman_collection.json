@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "159203e2-6971-4859-950e-f9634aa7e987",
+		"_postman_id": "175871df-4cb3-49c6-95c7-3d789a0d1408",
 		"name": "E2E Test 3 - Order and Payment",
 		"description": "Testing the order creation for an existing user and paying for it",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -262,11 +262,6 @@
 		}
 	],
 	"variable": [
-		{
-			"key": "{{API_GATEWAY_URL}}",
-			"value": "localhost:8080",
-			"type": "default"
-		},
 		{
 			"key": "createdCartResponse",
 			"value": ""

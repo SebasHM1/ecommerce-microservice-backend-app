@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "87283675-e3f7-46e0-8a68-60dccb611762",
+		"_postman_id": "be4c66f6-dc8c-4611-91e9-4ea27791c56a",
 		"name": "E2E Test 1 - Users",
 		"description": "In this test we're going to test the user registration and assinging it a credential, confirming the operations for getting each one and adding a user Address.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -391,11 +391,6 @@
 		}
 	],
 	"variable": [
-		{
-			"key": "API_GATEWAY_URL",
-			"value": "localhost:8080",
-			"type": "string"
-		},
 		{
 			"key": "authToken",
 			"value": "",

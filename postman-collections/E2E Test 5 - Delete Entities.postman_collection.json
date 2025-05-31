@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "23b8845b-b445-4a59-b2eb-de94ace345ef",
+		"_postman_id": "1321ac13-c8d1-493f-859d-320ccb942f62",
 		"name": "E2E Test 5 - Delete Entities",
 		"description": "Comprehensive end-to-end test for resource deletion operations across all microservices. Tests proper cleanup of users, products, orders, carts, addresses, shipping records, favourites, and verification tokens with proper dependency management. Includes tests for both path-variable and request-body deletion methods, as well as comprehensive error handling for non-existent resources.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -515,11 +515,6 @@
 	],
 	"variable": [
 		{
-			"key": "baseUrl",
-			"value": "localhost:8080",
-			"type": "string"
-		},
-		{
 			"key": "timestamp",
 			"value": ""
 		},
@@ -674,11 +669,6 @@
 		{
 			"key": "createdProductResponse",
 			"value": ""
-		},
-		{
-			"key": "API_GATEWAY_URL",
-			"value": "localhost:8080",
-			"type": "default"
 		}
 	]
 }

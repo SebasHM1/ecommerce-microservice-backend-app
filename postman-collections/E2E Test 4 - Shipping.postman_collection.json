@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "25b1b93d-d4f4-41d5-89c6-b2ade367d20a",
+		"_postman_id": "cf56619e-5021-44c8-84fa-7075d419d49b",
 		"name": "E2E Test 4 - Shipping",
 		"description": "In this test we are going to create a shipment from the order and product created previously, then updating it by altering its product quantity and finally were gonna delete it and check its elimination.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -285,16 +285,29 @@
 			"response": []
 		}
 	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
 	"variable": [
-		{
-			"key": "baseUrl",
-			"value": "localhost:8080",
-			"type": "default"
-		},
-		{
-			"key": "baseUrl",
-			"value": ""
-		},
 		{
 			"key": "createdShippingResponse",
 			"value": ""
@@ -302,11 +315,6 @@
 		{
 			"key": "updatedShippingResponse",
 			"value": ""
-		},
-		{
-			"key": "API_GATEWAY_URL",
-			"value": "localhost:8080",
-			"type": "default"
 		}
 	]
 }

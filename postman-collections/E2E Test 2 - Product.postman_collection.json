@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "0a8dd8e4-021d-4885-9c41-e2b09a4a5348",
+		"_postman_id": "71eaf7c4-66e5-4d6f-b656-d8b1674dc600",
 		"name": "E2E Test 2 - Product",
 		"description": "In this test we are going to create a product category, then add two products on it and updating one of them.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -280,11 +280,6 @@
 		}
 	],
 	"variable": [
-		{
-			"key": "API_GATEWAY_URL",
-			"value": "localhost:8080",
-			"type": "string"
-		},
 		{
 			"key": "categoryId",
 			"value": "",
