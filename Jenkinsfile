@@ -135,7 +135,7 @@ spec:
         }
 
 
-        /*
+        
         stage('Build and Push Docker Images to Registry') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
@@ -177,7 +177,7 @@ spec:
             }
         }
 
-        */
+        
 
         stage('Deploy to Kubernetes Environment') {
             steps {
