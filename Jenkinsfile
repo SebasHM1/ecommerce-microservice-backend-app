@@ -199,6 +199,9 @@ spec:
                     ]
 
                     for (yamlBaseName in servicesToDeploy) {
+                        
+                        // ... (dentro del bucle 'for (yamlBaseName in servicesToDeploy)' en el stage 'Deploy to Kubernetes Environment')
+
                         if (yamlBaseName == "zipkin") {
                             imageToDeployInK8s = "openzipkin/zipkin:latest" 
                             // Reemplazar la línea completa de imagen de Zipkin o un placeholder específico
@@ -259,8 +262,7 @@ spec:
                         sh "rm processed-deployment.yaml"
 
                         // ... resto del código del stage Deploy ...
-                        }
-                        // ... (apply serviceFile) ...
+
                     }
             
                 }
@@ -339,3 +341,4 @@ spec:
             // deleteDir()
         }
     }
+}
