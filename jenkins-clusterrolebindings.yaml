@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-default-can-deploy-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: jenkins
+roleRef:
+  kind: ClusterRole
+  name: jenkins-deployer-permissions
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-default-can-create-ns-binding # Si quieres que Jenkins pueda crear namespaces
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: jenkins
+roleRef:
+  kind: ClusterRole
+  name: jenkins-namespace-creator
+  apiGroup: rbac.authorization.k8s.io

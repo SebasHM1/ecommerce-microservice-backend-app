@@ -1,0 +1,33 @@
+# jenkins-values.yaml
+controller:
+  serviceType: NodePort
+  jenkinsUrlProtocol: http # Si no configuras Ingress con HTTPS
+  # Ajustar recursos para el Jenkins Master si es necesario
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi" 
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  # Configuración para los agentes JNLP por defecto (aunque nuestro pipeline usa un pod template)
+  # Esto puede influir en el agente usado para el checkout inicial del Jenkinsfile SCM
+  agent:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+persistence:
+  enabled: true
+  storageClassName: "standard" # Verifica el nombre de tu StorageClass en Minikube con `kubectl get sc`
+  size: 8Gi 
+# Para la configuración de agentes Kubernetes que Jenkins usa para provisionar pods
+# El ServiceAccount que usará Jenkins Master para hablar con K8s API
+# El chart crea uno por defecto, usualmente llamado como el release (ej. 'jenkins')
+# agent:
+#   kubernetesConnectTimeout: 5 # Opcional
+#   kubernetesReadTimeout: 15 # Opcional
+#   podTemplates: {} # Dejamos que el Jenkinsfile defina el pod template

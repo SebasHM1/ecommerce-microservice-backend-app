@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     git \
     # Para el cliente Docker
     docker.io \
+    # Para Python y pip (necesario para Locust)
+    python3 \
+    python3-pip \
     # Para kubectl (descarga e instala)
     && echo "Installing kubectl..." \
     && curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -35,6 +38,9 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     # Instalar Newman y htmlextra reporter globalmente usando npm
     && echo "Installing Newman and htmlextra reporter..." \
     && npm install -g newman newman-reporter-htmlextra \
+    # Instalar Locust usando pip
+    && echo "Installing Locust..." \
+    && pip3 install locust \
     # Limpieza de apt y npm cache
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -48,6 +54,9 @@ RUN echo "Java version:" && java -version \
     && echo "Minikube version:" && minikube version \
     && echo "Node.js version:" && node -v \
     && echo "npm version:" && npm -v \
-    && echo "Newman version:" && newman -v
+    && echo "Newman version:" && newman -v \
+    && echo "Python3 version:" && python3 --version \
+    && echo "pip3 version:" && pip3 --version \
+    && echo "Locust version:" && locust --version
 
 # El ENTRYPOINT/CMD del contenedor 'tools' se anulará con 'sleep infinity' en el Jenkinsfile.

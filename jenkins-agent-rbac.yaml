@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: jenkins 
+  name: jenkins-agent-role
+rules:
+- apiGroups: [""] 
+  resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"] # Añade otros si los necesitas, como daemonsets, replicasets
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-agent-rolebinding
+  namespace: jenkins 
+subjects:
+- kind: ServiceAccount
+  name: default 
+  namespace: jenkins
+roleRef:
+  kind: Role
+  name: jenkins-agent-role 
+  apiGroup: rbac.authorization.k8s.io
