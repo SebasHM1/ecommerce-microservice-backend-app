@@ -278,6 +278,15 @@ spec:
             }
         }
 
+        stage('Wait for Services') {
+            steps {
+                script {
+                    echo "Esperando 90 segundos para que los servicios se estabilicen..."
+                    sh 'sleep 90' // Ajusta este tiempo según sea necesario
+                }
+            }
+        }
+
         stage('Run E2E Tests with Newman') {
             when { expression { env.RUN_E2E_TESTS == "true" } }
             steps {
