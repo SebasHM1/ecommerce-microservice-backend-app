@@ -34,8 +34,8 @@ spec:
           value: "optional:configserver:http://cloud-config:9296"
         readinessProbe:
           httpGet:
-            path: order-service/actuator/health
+            path: favourite-service/actuator/health
             port: 8800
-          initialDelaySeconds: 25
+          initialDelaySeconds: 180
           periodSeconds: 5
           failureThreshold: 10
