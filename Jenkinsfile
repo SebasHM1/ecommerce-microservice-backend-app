@@ -213,7 +213,7 @@ spec:
                                 imageToDeployInK8s = "openzipkin/zipkin:latest" 
                                 // Reemplazar la línea completa de imagen de Zipkin o un placeholder específico
                                 // Usamos (?m) para modo multilínea y ^ para inicio de línea, \s* para espacios opcionales
-                                processedDeploymentContent = originalDeploymentContent.replaceAll(~/(?m)^\s*image:\s*openzipkin\/zipkin:.*?$/, "image: ${imageToDeployInK8s}")
+                                processedDeploymentContent = originalDeploymentContent.replaceAll(        ~/(?m)^\s*image:\s*openzipkin\/zipkin:.*?$/, "image: ${imageToDeployInK8s}")
                                 processedDeploymentContent = processedDeploymentContent.replaceAll(~/(?m)^\s*image:\s*IMAGE_PLACEHOLDER_ZIPKIN/, "image: ${imageToDeployInK8s}")
                             } else {
                                 def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
