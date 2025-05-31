@@ -282,7 +282,7 @@ spec:
             steps {
                 script {
                     echo "Esperando 90 segundos para que los servicios se estabilicen..."
-                    sh 'sleep 120' // Ajusta este tiempo según sea necesario
+                    sh 'sleep 210' // Ajusta este tiempo según sea necesario
                 }
             }
         }
