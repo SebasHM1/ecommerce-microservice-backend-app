@@ -231,8 +231,7 @@ spec:
                                     // error("No se encontró imageBaseTag para ${yamlBaseName}")
                                 } else {
                                     // Construimos la imagen final (p.ej. "sebashm1/ecommerce-microservice-backend-app:gateway-dev")
-                        def finalImageTag  = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
-                        imageToDeployInK8s   = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
+                        imageToDeployInK8s   = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
                         def rawBaseImage     = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
                         // Escapamos los puntos para que en el regex se aborden como literales
                         def escapedBaseImage = rawBaseImage.replaceAll("\\.", "\\\\.")
