@@ -184,8 +184,6 @@ spec:
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
-                    import java.util.regex.Pattern
-
                     def servicesToDeploy = [ 
                         'zipkin', 
                         'service-discovery', 'cloud-config', 'api-gateway', 'proxy-client',
@@ -232,20 +230,16 @@ spec:
                                     // Aquí podrías decidir fallar el pipeline si el tag es crucial:
                                     // error("No se encontró imageBaseTag para ${yamlBaseName}")
                                 } else {
-                                    def finalImageTag = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
-                                    imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
-                                    
-                                    // Patrón para encontrar y reemplazar la línea de imagen.
-                                    // Busca 'image: tu/repo:tagBase' o 'image: tu/repo:tagBase-con-sufijo-anterior'
-                                    // Lo importante es que el nombre del repo y el imageBaseTag coincidan.
-                                    // (?m) - modo multilínea, ^\s* - inicio de línea con espacios opcionales
-                                    // \s*:\s* - dos puntos con espacios opcionales alrededor
-                                    // (?:-[a-zA-Z0-9_.-]*)? - un sufijo opcional que comienza con guion
-                                    String exactImageToReplacePattern = ~/(?m)^\s*image:\s*${DOCKERHUB_USER}\/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}(?:-[a-zA-Z0-9_.-]*)?\s*$/
-                                    String newLineForImage = "image: ${imageToDeployInK8s}"
+                                    // Construimos la imagen final (p.ej. "sebashm1/ecommerce-microservice-backend-app:gateway-dev")
+                                    def finalImageTag  = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
+                                    imageToDeployInK8s   = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
+                                    def rawBaseImage     = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
+                                    // Escapamos los puntos para que en el regex se aborden como literales
+                                    def escapedBaseImage = rawBaseImage.replaceAll("\\.", "\\\\.")
+                                    //             ↑ en Groovy: "\\." -> "\" y "\" -> "\\",  
+                                    // → el resultado es un string válido dentro del regex: "\."
 
                                     // Alternativa: si el tag base en el YAML no tiene sufijos, es más simple:
-                                    String baseImageInYaml = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
 
                                     if (originalDeploymentContent.contains(baseImageInYaml)) {
                                         // a) Creamos un regex que capture la indentación
