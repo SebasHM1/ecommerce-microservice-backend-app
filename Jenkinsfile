@@ -224,7 +224,7 @@ spec:
                                 processedDeploymentContent = processedDeploymentContent.replaceAll(zipkinRegex2, zipkinReplacement2)
                             }
                             else {
-                                def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
+                                def imageBaseTag = serviceToFixedTagMap.get(yamlBaseName)
                                 if (imageBaseTag == null) {
                                     echo "ADVERTENCIA: No se encontró imageBaseTag para ${yamlBaseName}. El YAML no será modificado para la imagen."
                                     // Aquí podrías decidir fallar el pipeline si el tag es crucial:
