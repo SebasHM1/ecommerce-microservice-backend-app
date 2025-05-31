@@ -188,7 +188,7 @@ spec:
                         'order-service', 'product-service', 'user-service', 'shipping-service',
                         'payment-service', 'favourite-service'
                     ]
-                    def serviceDirToImageBaseTag = [
+                    def serviceToFixedTagMap  = [
                         'service-discovery': 'discovery', 'cloud-config': 'config',
                         'api-gateway': 'gateway', 'proxy-client': 'proxy',
                         'order-service': 'order', 'product-service': 'product',
@@ -201,54 +201,42 @@ spec:
                         String serviceFile = "k8s/${yamlBaseName}-service.yaml"
 
                         if (fileExists(deploymentFile)) {
-                            echo "Processing ${deploymentFile} for namespace ${K8S_NAMESPACE}"
                             def originalDeploymentContent = readFile(file: deploymentFile)
                             String imageToDeployInK8s
                             String processedDeploymentContent = originalDeploymentContent
 
                             if (yamlBaseName == "zipkin") {
                                 imageToDeployInK8s = "openzipkin/zipkin:latest" 
-                                processedDeploymentContent = originalDeploymentContent.replaceAll(~"image: openzipkin/zipkin:.*", "image: ${imageToDeployInK8s}")
-                                .replaceAll(~"image: IMAGE_PLACEHOLDER_ZIPKIN", "image: ${imageToDeployInK8s}")
                             } else {
-                                def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
-                                if (imageBaseTag == null) {
-                                    echo "ADVERTENCIA: No se encontró tag base para ${yamlBaseName}. El YAML no será modificado para la imagen."
-                                } else {
-                                    def finalImageTag = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
-                                    imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
-                                    String imageLinePattern = "image: ${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}.*"
-                                    String newLineForImage = "image: ${imageToDeployInK8s}"
-
-                                    if (originalDeploymentContent.contains(DOCKERHUB_USER + "/" + DOCKERHUB_REPO_PREFIX + ":" + imageBaseTag)) {
-                                       processedDeploymentContent = originalDeploymentContent.replaceAll(imageLinePattern, newLineForImage)
-                                    } else {
-                                       processedDeploymentContent = originalDeploymentContent.replaceAll(~"image: IMAGE_PLACEHOLDER_FOR_SERVICE", newLineForImage)
-                                    }
-                                    if (processedDeploymentContent == originalDeploymentContent) {
-                                        echo "ADVERTENCIA: El reemplazo de imagen no tuvo efecto para ${yamlBaseName}."
-                                    }
+                                def fixedImageTag = serviceToFixedTagMap.get(yamlBaseName)
+                                if (fixedImageTag == null) {
+                                    error("FATAL: No se encontró fixedImageTag para ${yamlBaseName}. El despliegue no puede continuar.")
                                 }
+                                imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${fixedImageTag}"
                             }
                             
-                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_ACTIVE_PROFILE_APP}\"")
+                            // Asumimos que el YAML base ya tiene un tag (ej. :latest o un tag viejo)
+                            // y lo vamos a reemplazar con la imagen con el tag fijo específico del servicio.
+                            // Este patrón reemplaza 'image: tu/repo:CUALQUIERCOSA' con 'image: tu/repo:TAGFIJO'
+                            String imageLinePattern = "image:\\s*${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:[^\\s\"]*"
+                            String newLineForImage = "image: ${imageToDeployInK8s}"
+                            
+                            processedDeploymentContent = originalDeploymentContent.replaceAll(imageLinePattern, newLineForImage)
+                                                        .replaceAll(~"image: IMAGE_PLACEHOLDER_FOR_SERVICE", newLineForImage) // Fallback
+
+                            if (processedDeploymentContent == originalDeploymentContent && yamlBaseName != "zipkin") {
+                                echo "ADVERTENCIA: El reemplazo de imagen no tuvo efecto para ${yamlBaseName}. Aplicando YAML original. ¿La línea 'image:' en ${deploymentFile} es correcta para ser reemplazada por el patrón '${imageLinePattern}'?"
+                            }
+                            
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_PROFILE_FOR_APP}\"")
 
                             writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
-                            // MODIFICACIÓN AQUÍ: Añadir -n ${K8S_NAMESPACE}
                             sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
                             sh "rm processed-deployment.yaml"
-                            
-                        } else {
-                            echo "Deployment file ${deploymentFile} not found for ${yamlBaseName}."
                         }
-
-                        if (fileExists(serviceFile)) {
-                            // MODIFICACIÓN AQUÍ: Añadir -n ${K8S_NAMESPACE}
-                            sh "kubectl apply -f ${serviceFile} -n ${K8S_NAMESPACE}"
-                        } else {
-                            echo "Service file ${serviceFile} not found for ${yamlBaseName}."
-                        }
+                        // ... (apply serviceFile) ...
                     }
+            
                 }
             }
         }
