@@ -262,7 +262,7 @@ spec:
                             }
 
                             // Reemplazar el perfil Spring
-                            processedDeploymentContent = processedDeploymentContent.replaceAll(~/(value:\s*)SPRING_PROFILE_PLACEHOLDER/, "\$1\"${SPRING_PROFILE_FOR_APP}\"")
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~/(value:\s*)SPRING_PROFILE_PLACEHOLDER/, "\$1\"${SPRING_ACTIVE_PROFILE_APP}\"")
 
                             writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
                             sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
