@@ -265,6 +265,8 @@ spec:
                             processedDeploymentContent = processedDeploymentContent.replaceAll(~/(value:\s*)SPRING_PROFILE_PLACEHOLDER/, "\$1\"${SPRING_ACTIVE_PROFILE_APP}\"")
 
                             writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
+                            echo "──── Procesed YAML generado para ${yamlBaseName} ────"
+                            echo processedDeploymentContent
                             sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
                             sh "rm processed-deployment.yaml"
 
