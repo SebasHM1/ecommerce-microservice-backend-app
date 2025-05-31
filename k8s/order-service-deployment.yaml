@@ -36,7 +36,7 @@ spec:
           value: "order-service"
         readinessProbe:
           httpGet:
-            path: /actuator/health
+            path: order-service/actuator/health
             port: 8300
           initialDelaySeconds: 25
           periodSeconds: 5

@@ -36,7 +36,7 @@ spec:
           value: "product-service"
         readinessProbe:
           httpGet:
-            path: /actuator/health
+            path: product-service/actuator/health
             port: 8500
           initialDelaySeconds: 25
           periodSeconds: 5

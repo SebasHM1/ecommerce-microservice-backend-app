@@ -36,7 +36,7 @@ spec:
           value: "proxy-client"
         readinessProbe:
           httpGet:
-            path: /actuator/health
+            path: proxy-client/actuator/health
             port: 8900
           initialDelaySeconds: 25
           periodSeconds: 5
