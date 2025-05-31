@@ -210,12 +210,20 @@ spec:
                             // ... (dentro del bucle 'for (yamlBaseName in servicesToDeploy)' en el stage 'Deploy to Kubernetes Environment')
 
                             if (yamlBaseName == "zipkin") {
-                                imageToDeployInK8s = "openzipkin/zipkin:latest" 
-                                // Reemplazar la línea completa de imagen de Zipkin o un placeholder específico
-                                // Usamos (?m) para modo multilínea y ^ para inicio de línea, \s* para espacios opcionales
-                                processedDeploymentContent = originalDeploymentContent.replaceAll(        ~/(?m)^\s*image:\s*openzipkin\/zipkin:.*?$/, "image: ${imageToDeployInK8s}")
-                                processedDeploymentContent = processedDeploymentContent.replaceAll(        ~/(?m)^\s*image:\s*IMAGE_PLACEHOLDER_ZIPKIN/, "image: ${imageToDeployInK8s}")
-                            } else {
+                                imageToDeployInK8s = "openzipkin/zipkin:latest"
+
+                                // 1) Capturamos la indentación en el grupo $1
+                                def zipkinRegex1 = ~/(?m)^(\s*)image:\s*openzipkin\/zipkin:.*?$/
+                                // 2) En el reemplazo, reinsertamos los espacios capturados ($1) antes de la nueva línea
+                                def zipkinReplacement1 = "\$1image: ${imageToDeployInK8s}"
+                                processedDeploymentContent = originalDeploymentContent.replaceAll(zipkinRegex1, zipkinReplacement1)
+
+                                // 3) Lo mismo para cuando hubiese un placeholder literal
+                                def zipkinRegex2 = ~/(?m)^(\s*)image:\s*IMAGE_PLACEHOLDER_ZIPKIN.*?$/
+                                def zipkinReplacement2 = "\$1image: ${imageToDeployInK8s}"
+                                processedDeploymentContent = processedDeploymentContent.replaceAll(zipkinRegex2, zipkinReplacement2)
+                            }
+                            else {
                                 def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
                                 if (imageBaseTag == null) {
                                     echo "ADVERTENCIA: No se encontró imageBaseTag para ${yamlBaseName}. El YAML no será modificado para la imagen."
@@ -238,15 +246,16 @@ spec:
                                     String baseImageInYaml = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
 
                                     if (originalDeploymentContent.contains(baseImageInYaml)) {
-                                        // Intenta reemplazar la línea completa que contiene la imagen base
-                                        // Esto es más seguro si la línea 'image:' está bien formada.
-                                        // Regex: busca la línea que empieza con 'image: ' seguido de la imagen base, y cualquier cosa hasta el fin de línea.
-                                        def imageLineRegex = ~"image:\\s*${baseImageInYaml.replace(".", "\\.")}(\\s.*)?\$" 
-                                        // El .replace(".", "\\.") es para escapar puntos en el nombre de la imagen si los hubiera (no en tu caso actual)
-                                        processedDeploymentContent = originalDeploymentContent.replaceAll(imageLineRegex, newLineForImage)
+                                        // a) Creamos un regex que capture la indentación
+                                        def svcRegex = ~/(?m)^(\s*)image:\s*${Pattern.quote(baseImageInYaml)}(?:-[a-zA-Z0-9_.-]*)?\s*$/
+                                        // b) La nueva línea con indentación ($1) + “image: tu/repo:tagNuevo”
+                                        def svcReplacement = "\$1image: ${imageToDeployInK8s}"
+                                        processedDeploymentContent = originalDeploymentContent.replaceAll(svcRegex, svcReplacement)
                                     } else {
-                                    // Fallback a un placeholder más genérico si el anterior no coincide
-                                    processedDeploymentContent = originalDeploymentContent.replaceAll(~/(image:\s*)IMAGE_PLACEHOLDER_FOR_SERVICE/, "\$1${imageToDeployInK8s}")
+                                    // Fallback a placeholder genérico, igualmente capturando indentación
+                                        def phRegex = ~/(?m)^(\s*)image:\s*IMAGE_PLACEHOLDER_FOR_SERVICE\s*$/
+                                        def phReplacement = "\$1image: ${imageToDeployInK8s}"
+                                        processedDeploymentContent = originalDeploymentContent.replaceAll(phRegex, phReplacement)
                                     }
 
                                     if (processedDeploymentContent == originalDeploymentContent) {
