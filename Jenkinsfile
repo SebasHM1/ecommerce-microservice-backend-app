@@ -109,10 +109,12 @@ spec:
             }
         }
 
+        
+        /*
         stage('Compile, Test, and Package') { // Un solo stage para build y tests
             steps {
                 script {
-                    def servicesToProcess = [ /* tu lista de servicios */ 
+                    def servicesToProcess = [
                         'service-discovery', 'cloud-config',  'user-service',  'api-gateway', 'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'
                     ]
                     for (svc in servicesToProcess) {
@@ -177,7 +179,7 @@ spec:
             }
         }
 
-        
+        */
 
         stage('Deploy to Kubernetes Environment') {
             steps {
@@ -228,7 +230,7 @@ spec:
                                 echo "ADVERTENCIA: El reemplazo de imagen no tuvo efecto para ${yamlBaseName}. Aplicando YAML original. ¿La línea 'image:' en ${deploymentFile} es correcta para ser reemplazada por el patrón '${imageLinePattern}'?"
                             }
                             
-                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_PROFILE_FOR_APP}\"")
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~"value: SPRING_PROFILE_PLACEHOLDER", "value: \"${SPRING_ACTIVE_PROFILE_APP}\"")
 
                             writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
                             sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
