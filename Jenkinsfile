@@ -199,70 +199,78 @@ spec:
                     ]
 
                     for (yamlBaseName in servicesToDeploy) {
-                        
-                        // ... (dentro del bucle 'for (yamlBaseName in servicesToDeploy)' en el stage 'Deploy to Kubernetes Environment')
+                        String deploymentFile = "k8s/${yamlBaseName}-deployment.yaml"
+                        String serviceFile = "k8s/${yamlBaseName}-service.yaml"
 
-                        if (yamlBaseName == "zipkin") {
-                            imageToDeployInK8s = "openzipkin/zipkin:latest" 
-                            // Reemplazar la línea completa de imagen de Zipkin o un placeholder específico
-                            // Usamos (?m) para modo multilínea y ^ para inicio de línea, \s* para espacios opcionales
-                            processedDeploymentContent = originalDeploymentContent.replaceAll(~/(?m)^\s*image:\s*openzipkin\/zipkin:.*?$/, "image: ${imageToDeployInK8s}")
-                            processedDeploymentContent = processedDeploymentContent.replaceAll(~/(?m)^\s*image:\s*IMAGE_PLACEHOLDER_ZIPKIN/, "image: ${imageToDeployInK8s}")
-                        } else {
-                            def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
-                            if (imageBaseTag == null) {
-                                echo "ADVERTENCIA: No se encontró imageBaseTag para ${yamlBaseName}. El YAML no será modificado para la imagen."
-                                // Aquí podrías decidir fallar el pipeline si el tag es crucial:
-                                // error("No se encontró imageBaseTag para ${yamlBaseName}")
+                        if (fileExists(deploymentFile)) {
+                            def originalDeploymentContent = readFile(file: deploymentFile)
+                            String imageToDeployInK8s
+                            String processedDeploymentContent = originalDeploymentContent
+
+                            // ... (dentro del bucle 'for (yamlBaseName in servicesToDeploy)' en el stage 'Deploy to Kubernetes Environment')
+
+                            if (yamlBaseName == "zipkin") {
+                                imageToDeployInK8s = "openzipkin/zipkin:latest" 
+                                // Reemplazar la línea completa de imagen de Zipkin o un placeholder específico
+                                // Usamos (?m) para modo multilínea y ^ para inicio de línea, \s* para espacios opcionales
+                                processedDeploymentContent = originalDeploymentContent.replaceAll(~/(?m)^\s*image:\s*openzipkin\/zipkin:.*?$/, "image: ${imageToDeployInK8s}")
+                                processedDeploymentContent = processedDeploymentContent.replaceAll(~/(?m)^\s*image:\s*IMAGE_PLACEHOLDER_ZIPKIN/, "image: ${imageToDeployInK8s}")
                             } else {
-                                def finalImageTag = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
-                                imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
-                                
-                                // Patrón para encontrar y reemplazar la línea de imagen.
-                                // Busca 'image: tu/repo:tagBase' o 'image: tu/repo:tagBase-con-sufijo-anterior'
-                                // Lo importante es que el nombre del repo y el imageBaseTag coincidan.
-                                // (?m) - modo multilínea, ^\s* - inicio de línea con espacios opcionales
-                                // \s*:\s* - dos puntos con espacios opcionales alrededor
-                                // (?:-[a-zA-Z0-9_.-]*)? - un sufijo opcional que comienza con guion
-                                String exactImageToReplacePattern = ~/(?m)^\s*image:\s*${DOCKERHUB_USER}\/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}(?:-[a-zA-Z0-9_.-]*)?\s*$/
-                                String newLineForImage = "image: ${imageToDeployInK8s}"
-
-                                // Alternativa: si el tag base en el YAML no tiene sufijos, es más simple:
-                                String baseImageInYaml = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
-
-                                if (originalDeploymentContent.contains(baseImageInYaml)) {
-                                    // Intenta reemplazar la línea completa que contiene la imagen base
-                                    // Esto es más seguro si la línea 'image:' está bien formada.
-                                    // Regex: busca la línea que empieza con 'image: ' seguido de la imagen base, y cualquier cosa hasta el fin de línea.
-                                    def imageLineRegex = ~"image:\\s*${baseImageInYaml.replace(".", "\\.")}(\\s.*)?\$" 
-                                    // El .replace(".", "\\.") es para escapar puntos en el nombre de la imagen si los hubiera (no en tu caso actual)
-                                    processedDeploymentContent = originalDeploymentContent.replaceAll(imageLineRegex, newLineForImage)
+                                def imageBaseTag = serviceDirToImageBaseTag.get(yamlBaseName)
+                                if (imageBaseTag == null) {
+                                    echo "ADVERTENCIA: No se encontró imageBaseTag para ${yamlBaseName}. El YAML no será modificado para la imagen."
+                                    // Aquí podrías decidir fallar el pipeline si el tag es crucial:
+                                    // error("No se encontró imageBaseTag para ${yamlBaseName}")
                                 } else {
-                                // Fallback a un placeholder más genérico si el anterior no coincide
-                                processedDeploymentContent = originalDeploymentContent.replaceAll(~/(image:\s*)IMAGE_PLACEHOLDER_FOR_SERVICE/, "\$1${imageToDeployInK8s}")
-                                }
+                                    def finalImageTag = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
+                                    imageToDeployInK8s = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
+                                    
+                                    // Patrón para encontrar y reemplazar la línea de imagen.
+                                    // Busca 'image: tu/repo:tagBase' o 'image: tu/repo:tagBase-con-sufijo-anterior'
+                                    // Lo importante es que el nombre del repo y el imageBaseTag coincidan.
+                                    // (?m) - modo multilínea, ^\s* - inicio de línea con espacios opcionales
+                                    // \s*:\s* - dos puntos con espacios opcionales alrededor
+                                    // (?:-[a-zA-Z0-9_.-]*)? - un sufijo opcional que comienza con guion
+                                    String exactImageToReplacePattern = ~/(?m)^\s*image:\s*${DOCKERHUB_USER}\/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}(?:-[a-zA-Z0-9_.-]*)?\s*$/
+                                    String newLineForImage = "image: ${imageToDeployInK8s}"
 
-                                if (processedDeploymentContent == originalDeploymentContent) {
-                                    echo "ADVERTENCIA: El reemplazo de imagen NO tuvo efecto para ${yamlBaseName}."
-                                    echo "   - YAML original contenía: ${baseImageInYaml} ? ${originalDeploymentContent.contains(baseImageInYaml)}"
-                                    echo "   - Se intentó reemplazar usando un patrón derivado de: ${baseImageInYaml}"
-                                    echo "   - O el placeholder: IMAGE_PLACEHOLDER_FOR_SERVICE"
-                                    echo "   - Nueva línea de imagen deseada: ${newLineForImage}"
-                                    // Para depurar, imprime el contenido original si el reemplazo falla
-                                    // echo "Contenido original del deployment para ${yamlBaseName}:\n${originalDeploymentContent}"
+                                    // Alternativa: si el tag base en el YAML no tiene sufijos, es más simple:
+                                    String baseImageInYaml = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
+
+                                    if (originalDeploymentContent.contains(baseImageInYaml)) {
+                                        // Intenta reemplazar la línea completa que contiene la imagen base
+                                        // Esto es más seguro si la línea 'image:' está bien formada.
+                                        // Regex: busca la línea que empieza con 'image: ' seguido de la imagen base, y cualquier cosa hasta el fin de línea.
+                                        def imageLineRegex = ~"image:\\s*${baseImageInYaml.replace(".", "\\.")}(\\s.*)?\$" 
+                                        // El .replace(".", "\\.") es para escapar puntos en el nombre de la imagen si los hubiera (no en tu caso actual)
+                                        processedDeploymentContent = originalDeploymentContent.replaceAll(imageLineRegex, newLineForImage)
+                                    } else {
+                                    // Fallback a un placeholder más genérico si el anterior no coincide
+                                    processedDeploymentContent = originalDeploymentContent.replaceAll(~/(image:\s*)IMAGE_PLACEHOLDER_FOR_SERVICE/, "\$1${imageToDeployInK8s}")
+                                    }
+
+                                    if (processedDeploymentContent == originalDeploymentContent) {
+                                        echo "ADVERTENCIA: El reemplazo de imagen NO tuvo efecto para ${yamlBaseName}."
+                                        echo "   - YAML original contenía: ${baseImageInYaml} ? ${originalDeploymentContent.contains(baseImageInYaml)}"
+                                        echo "   - Se intentó reemplazar usando un patrón derivado de: ${baseImageInYaml}"
+                                        echo "   - O el placeholder: IMAGE_PLACEHOLDER_FOR_SERVICE"
+                                        echo "   - Nueva línea de imagen deseada: ${newLineForImage}"
+                                        // Para depurar, imprime el contenido original si el reemplazo falla
+                                        // echo "Contenido original del deployment para ${yamlBaseName}:\n${originalDeploymentContent}"
+                                    }
                                 }
                             }
+
+                            // Reemplazar el perfil Spring
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(~/(value:\s*)SPRING_PROFILE_PLACEHOLDER/, "\$1\"${SPRING_PROFILE_FOR_APP}\"")
+
+                            writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
+                            sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
+                            sh "rm processed-deployment.yaml"
+
+                            // ... resto del código del stage Deploy ...
                         }
-
-                        // Reemplazar el perfil Spring
-                        processedDeploymentContent = processedDeploymentContent.replaceAll(~/(value:\s*)SPRING_PROFILE_PLACEHOLDER/, "\$1\"${SPRING_PROFILE_FOR_APP}\"")
-
-                        writeFile(file: "processed-deployment.yaml", text: processedDeploymentContent)
-                        sh "kubectl apply -f processed-deployment.yaml -n ${K8S_NAMESPACE}"
-                        sh "rm processed-deployment.yaml"
-
-                        // ... resto del código del stage Deploy ...
-
+                        // ... (apply serviceFile) ...
                     }
             
                 }
