@@ -339,4 +339,3 @@ spec:
             // deleteDir()
         }
     }
-}
