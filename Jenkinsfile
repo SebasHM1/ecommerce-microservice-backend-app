@@ -231,39 +231,33 @@ spec:
                                     // error("No se encontró imageBaseTag para ${yamlBaseName}")
                                 } else {
                                     // Construimos la imagen final (p.ej. "sebashm1/ecommerce-microservice-backend-app:gateway-dev")
-                                    def finalImageTag  = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
-                                    imageToDeployInK8s   = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
-                                    def rawBaseImage     = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
-                                    // Escapamos los puntos para que en el regex se aborden como literales
-                                    def escapedBaseImage = rawBaseImage.replaceAll("\\.", "\\\\.")
-                                    //             ↑ en Groovy: "\\." -> "\" y "\" -> "\\",  
-                                    // → el resultado es un string válido dentro del regex: "\."
+                        def finalImageTag  = "${imageBaseTag}${IMAGE_TAG_SUFFIX}"
+                        imageToDeployInK8s   = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${finalImageTag}"
+                        def rawBaseImage     = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${imageBaseTag}"
+                        // Escapamos los puntos para que en el regex se aborden como literales
+                        def escapedBaseImage = rawBaseImage.replaceAll("\\.", "\\\\.")
+                        //             ↑ en Groovy: "\\." -> "\" y "\" -> "\\",  
+                        // → el resultado es un string válido dentro del regex: "\."
 
-                                    // Alternativa: si el tag base en el YAML no tiene sufijos, es más simple:
+                        if (originalDeploymentContent.contains(rawBaseImage)) {
+                            // Capturamos indentación + línea exacta "image: tu/repo:tagBase"
+                            // El sufijo "(?:-[A-Za-z0-9_.-]*)?" permite que si ya había un "-dev" o similar, 
+                            // se considere parte del match. Pero dado que borramos ":tagBase", basta con la versión simple:
+                            def svcRegex = ~/(?m)^(\s*)image:\s*${escapedBaseImage}(?:-[A-Za-z0-9_.-]*)?\s*$/
+                            def svcReplacement = "\$1image: ${imageToDeployInK8s}"
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(svcRegex, svcReplacement)
+                        } else {
+                            // Fallback genérico a placeholder "IMAGE_PLACEHOLDER_FOR_SERVICE"
+                            def phRegex = ~/(?m)^(\s*)image:\s*IMAGE_PLACEHOLDER_FOR_SERVICE\s*$/
+                            def phReplacement = "\$1image: ${imageToDeployInK8s}"
+                            processedDeploymentContent = processedDeploymentContent.replaceAll(phRegex, phReplacement)
+                        }
 
-                                    if (originalDeploymentContent.contains(baseImageInYaml)) {
-                                        // a) Creamos un regex que capture la indentación
-                                        def svcRegex = ~/(?m)^(\s*)image:\s*${Pattern.quote(baseImageInYaml)}(?:-[a-zA-Z0-9_.-]*)?\s*$/
-                                        // b) La nueva línea con indentación ($1) + “image: tu/repo:tagNuevo”
-                                        def svcReplacement = "\$1image: ${imageToDeployInK8s}"
-                                        processedDeploymentContent = originalDeploymentContent.replaceAll(svcRegex, svcReplacement)
-                                    } else {
-                                    // Fallback a placeholder genérico, igualmente capturando indentación
-                                        def phRegex = ~/(?m)^(\s*)image:\s*IMAGE_PLACEHOLDER_FOR_SERVICE\s*$/
-                                        def phReplacement = "\$1image: ${imageToDeployInK8s}"
-                                        processedDeploymentContent = originalDeploymentContent.replaceAll(phRegex, phReplacement)
-                                    }
-
-                                    if (processedDeploymentContent == originalDeploymentContent) {
-                                        echo "ADVERTENCIA: El reemplazo de imagen NO tuvo efecto para ${yamlBaseName}."
-                                        echo "   - YAML original contenía: ${baseImageInYaml} ? ${originalDeploymentContent.contains(baseImageInYaml)}"
-                                        echo "   - Se intentó reemplazar usando un patrón derivado de: ${baseImageInYaml}"
-                                        echo "   - O el placeholder: IMAGE_PLACEHOLDER_FOR_SERVICE"
-                                        echo "   - Nueva línea de imagen deseada: ${newLineForImage}"
-                                        // Para depurar, imprime el contenido original si el reemplazo falla
-                                        // echo "Contenido original del deployment para ${yamlBaseName}:\n${originalDeploymentContent}"
-                                    }
-                                }
+                        if (processedDeploymentContent == originalDeploymentContent) {
+                            echo "ADVERTENCIA: El reemplazo de imagen NO tuvo efecto para ${yamlBaseName}."
+                            echo "   - ¿Contiene base (${rawBaseImage})? ${originalDeploymentContent.contains(rawBaseImage)}"
+                            echo "   - Nueva línea deseada: image: ${imageToDeployInK8s}"
+                        }
                             }
 
                             // Reemplazar el perfil Spring
@@ -279,7 +273,7 @@ spec:
                         }
                         // ... (apply serviceFile) ...
                     }
-            
+                    }
                 }
             }
         }
