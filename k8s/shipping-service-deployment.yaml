@@ -27,7 +27,7 @@ spec:
         - containerPort: 8600
         env:
         - name: SPRING_PROFILES_ACTIVE
-           value: SPRING_PROFILE_PLACEHOLDER 
+          value: SPRING_PROFILE_PLACEHOLDER 
         - name: SPRING_ZIPKIN_BASE_URL
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
