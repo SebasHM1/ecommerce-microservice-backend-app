@@ -136,7 +136,7 @@ spec:
         }
 
 
-        """
+        
         stage('Build and Push Docker Images to Registry') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
@@ -178,7 +178,7 @@ spec:
             }
         }
 
-        
+        /*
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
@@ -274,8 +274,8 @@ spec:
                 }
             }
         }
-        """
-
+        
+        */
         stage('Deploy Infrastructure with Terraform') {
             steps {
                 // Entramos al directorio del entorno que corresponde a la rama actual
