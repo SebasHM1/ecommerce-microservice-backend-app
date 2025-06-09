@@ -55,6 +55,7 @@ spec:
                         // Para DEV: Correr unit tests (por defecto con `mvn package`), saltar ITs explícitamente
                         MAVEN_PROFILES = "-Pskip-its" 
                         RUN_E2E_TESTS = "false"
+                        TERRAFORM_ENV_DIR = "dev" // MODIFICADO
                     } else if (env.GIT_BRANCH ==~ /.*\/staging.*/) {
                         echo "ENVIRONMENT: STAGE"
                         K8S_NAMESPACE = "stage"
@@ -63,6 +64,7 @@ spec:
                         // Para STAGE: Correr unit tests Y tests de integración
                         MAVEN_PROFILES = "-Prun-its" 
                         RUN_E2E_TESTS = "true" // E2E en Staging
+                        TERRAFORM_ENV_DIR = "stage" // MODIFICADO
                     } else if (env.GIT_BRANCH ==~ /.*\/master.*/) {
                         echo "ENVIRONMENT: PROD"
                         K8S_NAMESPACE = "prod"
@@ -71,6 +73,7 @@ spec:
                         IMAGE_TAG_SUFFIX = "-prod-${gitCommit}" 
                         // Para PROD: Correr unit tests Y tests de integración
                         MAVEN_PROFILES = "-Prun-its"
+                        TERRAFORM_ENV_DIR = "prod" // MODIFICADO
                     } else { // Feature branches
                         echo "ENVIRONMENT: FEATURE (Dev-like)"
                         K8S_NAMESPACE = "dev" 
@@ -79,6 +82,7 @@ spec:
                         IMAGE_TAG_SUFFIX = "-feature-${branchName}-${env.BUILD_NUMBER}"
                         MAVEN_PROFILES = "-Pskip-its"
                         RUN_E2E_TESTS = "false" // E2E en Prod (Master)
+                        TERRAFORM_ENV_DIR = "dev" // MODIFICADO
                     }
                     echo "K8S Namespace: ${K8S_NAMESPACE}"
                     echo "Spring Profile for Deployed App: ${SPRING_ACTIVE_PROFILE_APP}"
@@ -109,7 +113,7 @@ spec:
             }
         }
 
-        
+        /*
         stage('Compile, Test, and Package') { // Un solo stage para build y tests
             steps {
                 script {
@@ -178,7 +182,7 @@ spec:
             }
         }
 
-        /*
+        
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
