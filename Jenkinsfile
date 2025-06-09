@@ -136,7 +136,7 @@ spec:
         }
 
 
-        
+        """
         stage('Build and Push Docker Images to Registry') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
@@ -178,6 +178,7 @@ spec:
             }
         }
 
+        
         stage('Deploy to Kubernetes Environment') {
             steps {
                 script {
@@ -269,6 +270,46 @@ spec:
                         }
                         // ... (apply serviceFile) ...
                     }
+                    }
+                }
+            }
+        }
+        """
+
+        stage('Deploy Infrastructure with Terraform') {
+            steps {
+                // Entramos al directorio del entorno que corresponde a la rama actual
+                dir("terraform/${TERRAFORM_ENV_DIR}") {
+                    script {
+                        echo "===================================================================="
+                        echo "Running Terraform for environment: ${TERRAFORM_ENV_DIR}"
+                        echo "Working directory: ${pwd()}"
+                        echo "===================================================================="
+
+                        // Paso 1: Inicializar Terraform.
+                        // Descarga el proveedor de Kubernetes y lee la configuración del backend.
+                        // Se conectará al backend de Kubernetes que definimos en backend.tf
+                        echo "--- Terraform Init ---"
+                        sh 'terraform init -input=false'
+
+                        // Paso 2: Planificar los cambios.
+                        // Compara el estado actual (leído del backend) con el código deseado.
+                        // Genera un "plan" de ejecución y lo guarda en 'tfplan'.
+                        // Le pasamos las variables desde Jenkins usando -var.
+                        echo "--- Terraform Plan ---"
+                        sh """
+                        terraform plan -out=tfplan -input=false \
+                            -var="image_tag_suffix=${IMAGE_TAG_SUFFIX}" \
+                            -var="dockerhub_user=${DOCKERHUB_USER}" \
+                            -var="repo_prefix=${DOCKERHUB_REPO_PREFIX}" \
+                            -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
+                        """
+
+                        // Paso 3: Aplicar los cambios.
+                        // Ejecuta el plan guardado. El `-auto-approve` es crucial para que no pida
+                        // confirmación interactiva, lo que detendría la pipeline.
+                        echo "--- Terraform Apply ---"
+                        sh 'terraform apply -auto-approve -input=false tfplan'
                     }
                 }
             }
