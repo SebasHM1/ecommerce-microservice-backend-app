@@ -343,7 +343,13 @@ spec:
                         // 2. Planificar la importación
                         //    Terraform detectará imports.tf y creará un plan de importación.
                         echo "--- Terraform Plan for Import ---"
-                        sh 'terraform plan -out=importplan'
+                        sh """
+                        terraform plan -out=importplan \
+                            -var="image_tag_suffix=${IMAGE_TAG_SUFFIX}" \
+                            -var="dockerhub_user=${DOCKERHUB_USER}" \
+                            -var="repo_prefix=${DOCKERHUB_REPO_PREFIX}" \
+                            -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
+                        """
 
                         // 3. Aplicar el plan de importación
                         //    Esto leerá los recursos de K8s y escribirá en el estado remoto.
