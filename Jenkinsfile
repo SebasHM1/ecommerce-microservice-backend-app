@@ -11,6 +11,7 @@ spec:
     image: jenkins/inbound-agent:jdk17 
   - name: tools
     image: sebashm1/jenkins-tools-completa:jdk17 
+    imagePullPolicy: 'Always'
     command: ['sleep']
     args: ['infinity']
     tty: true
