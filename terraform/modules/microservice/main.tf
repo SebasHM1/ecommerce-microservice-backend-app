@@ -36,6 +36,15 @@ resource "kubernetes_deployment" "app" {
             value = var.spring_profile
           }
 
+          # Bucle que crea dinámicamente los bloques 'env' a partir del mapa
+          dynamic "env" {
+            for_each = var.env_vars
+            content {
+              name  = env.key
+              value = env.value
+            }
+          }
+
           # BUENA PRÁCTICA: Añadir sondas de salud
           liveness_probe {
             http_get {

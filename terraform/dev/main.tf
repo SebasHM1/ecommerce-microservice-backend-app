@@ -104,6 +104,13 @@ module "user-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:users"
   spring_profile = var.spring_profile
+
+  env_vars = {
+    "SPRING_CONFIG_IMPORT"                  = "optional:configserver:http://cloud-config.dev.svc.cluster.local:9296"
+    "EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE" = "http://service-discovery.dev.svc.cluster.local:8761/eureka"
+    "SPRING_ZIPKIN_BASE_URL"                = "http://zipkin.dev.svc.cluster.local:9411/"
+  }
+
 }
 
 # 3.2: Product Service (Entidad de catálogo)

@@ -37,3 +37,9 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "env_vars" {
+  description = "Un mapa de variables de entorno para inyectar en el contenedor."
+  type        = map(string)
+  default     = {} # Por defecto, no hay variables extra.
+}
