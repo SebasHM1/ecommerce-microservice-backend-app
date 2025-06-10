@@ -76,10 +76,26 @@ module "cloud-config" {
 }
 
 # ==============================================================================
-# NIVEL 2: Despliegue Secuencial de Aplicaciones 1x1
+# NIVEL 3: Despliegue del Descubrimiento de Servicios (Eureka)
+# ==============================================================================
+module "service-discovery" {
+  source = "../modules/microservice"
+
+  # ¡DEPENDENCIA CLAVE! Se crea solo después de que cloud-config esté definido.
+  depends_on = [module.cloud-config]
+
+  name           = "service-discovery"
+  namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:discovery"
+  spring_profile = var.spring_profile
+  container_port = 8761 # Puerto específico de service-discovery
+}
+
+# ==============================================================================
+# NIVEL 3: Despliegue Secuencial de Aplicaciones 1x1
 # ==============================================================================
 
-# 2.1: User Service (Entidad fundamental)
+# 3.1: User Service (Entidad fundamental)
 module "user-service" {
   source = "../modules/microservice"
   depends_on = [module.service-discovery] # Depende de la infra
@@ -90,7 +106,7 @@ module "user-service" {
   spring_profile = var.spring_profile
 }
 
-# 2.2: Product Service (Entidad de catálogo)
+# 3.2: Product Service (Entidad de catálogo)
 module "product-service" {
   source = "../modules/microservice"
   depends_on = [module.user-service] # Espera a que user-service esté definido
@@ -101,7 +117,7 @@ module "product-service" {
   spring_profile = var.spring_profile
 }
 
-# 2.3: Order Service (Lógica de negocio principal)
+# 3.3: Order Service (Lógica de negocio principal)
 module "order-service" {
   source = "../modules/microservice"
   depends_on = [module.product-service] # Espera a product-service
@@ -112,7 +128,7 @@ module "order-service" {
   spring_profile = var.spring_profile
 }
 
-# 2.4: Payment Service (Soporte a la orden)
+# 3.4: Payment Service (Soporte a la orden)
 module "payment-service" {
   source = "../modules/microservice"
   depends_on = [module.order-service] # Espera a order-service
@@ -123,7 +139,7 @@ module "payment-service" {
   spring_profile = var.spring_profile
 }
 
-# 2.5: Shipping Service (Soporte a la orden)
+# 3.5: Shipping Service (Soporte a la orden)
 module "shipping-service" {
   source = "../modules/microservice"
   depends_on = [module.payment-service] # Espera a payment-service
@@ -134,7 +150,7 @@ module "shipping-service" {
   spring_profile = var.spring_profile
 }
 
-# 2.6: API Gateway (Punto de entrada final)
+# 3.6: API Gateway (Punto de entrada final)
 module "api-gateway" {
   source = "../modules/microservice"
   # Espera a que el último servicio de la cadena esté definido
