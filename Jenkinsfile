@@ -283,17 +283,23 @@ spec:
         */
         stage('Deploy Infrastructure with Terraform') {
             steps {
+                script {
+                    echo "--- DEBUG: Listing full workspace structure BEFORE changing directory ---"
+                    sh 'ls -R' // Lista todo desde la raíz del workspace
+                }
+                
                 // Entramos al directorio del entorno que corresponde a la rama actual
-                dir("terraform/modules/${TERRAFORM_ENV_DIR}") {
+                dir("terraform/${TERRAFORM_ENV_DIR}") {
                     script {
                         echo "===================================================================="
                         echo "Running Terraform for environment: ${TERRAFORM_ENV_DIR}"
-                        echo "Working directory: ${pwd()}"
+                        echo "Current working directory: ${pwd()}"
+                        
+                        echo "--- DEBUG: Listing contents of current directory and parent ---"
+                        sh 'echo "Contents of .(current):"; ls -la'
+                        sh 'echo "Contents of ..(parent):"; ls -la ..'
+                        
                         echo "===================================================================="
-
-                        // Paso 1: Inicializar Terraform.
-                        // Descarga el proveedor de Kubernetes y lee la configuración del backend.
-                        // Se conectará al backend de Kubernetes que definimos en backend.tf
                         echo "--- Terraform Init ---"
                         sh 'terraform init -input=false'
 
