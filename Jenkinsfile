@@ -280,7 +280,7 @@ spec:
             }
         }
         
-        
+        */
         stage('Deploy Infrastructure with Terraform') {
             steps {
                 script {
@@ -321,45 +321,6 @@ spec:
                         // confirmación interactiva, lo que detendría la pipeline.
                         echo "--- Terraform Apply ---"
                         sh 'terraform apply -auto-approve -input=false tfplan'
-                    }
-                }
-            }
-
-        }
-*/
-        stage('Bootstrap/Import Existing Infrastructure') {
-            steps {
-                dir("terraform/${TERRAFORM_ENV_DIR}") {
-                    script {
-                        echo "===================================================================="
-                        echo "RUNNING IN IMPORT MODE FOR ENVIRONMENT: ${TERRAFORM_ENV_DIR}"
-                        echo "This stage should only be run once to populate the Terraform state."
-                        echo "===================================================================="
-
-                        // 1. Inicializar Terraform (como siempre)
-                        echo "--- Terraform Init ---"
-                        sh 'terraform init -input=false'
-
-                        // 2. Planificar la importación
-                        //    Terraform detectará imports.tf y creará un plan de importación.
-                        echo "--- Terraform Plan for Import ---"
-                        sh """
-                        terraform plan -out=importplan \
-                            -var="image_tag_suffix=${IMAGE_TAG_SUFFIX}" \
-                            -var="dockerhub_user=${DOCKERHUB_USER}" \
-                            -var="repo_prefix=${DOCKERHUB_REPO_PREFIX}" \
-                            -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
-                        """
-
-                        // 3. Aplicar el plan de importación
-                        //    Esto leerá los recursos de K8s y escribirá en el estado remoto.
-                        echo "--- Terraform Apply for Import ---"
-                        sh 'terraform apply -auto-approve -input=false importplan'
-
-                        echo "===================================================================="
-                        echo "IMPORT COMPLETE. You can now remove 'imports.tf' from your repo"
-                        echo "and revert the Jenkinsfile to its normal state."
-                        echo "===================================================================="
                     }
                 }
             }
