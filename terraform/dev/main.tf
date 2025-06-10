@@ -126,7 +126,7 @@ module "user-service" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:users"
   spring_profile = var.spring_profile
   container_port = 8700
-
+  health_check_path = "/user-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "user-service" }
@@ -145,7 +145,7 @@ module "product-service" {
   spring_profile = var.spring_profile
 
   container_port = 8500
-
+  health_check_path = "/product-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "product-service" }
@@ -163,6 +163,7 @@ module "order-service" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:order"
   spring_profile = var.spring_profile
   container_port   = 8300
+  health_check_path = "/order-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "order-service" }
@@ -179,6 +180,7 @@ module "payment-service" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:payment"
   spring_profile = var.spring_profile
   container_port   = 8400
+  health_check_path = "/payment-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "payment-service" }
@@ -194,6 +196,7 @@ module "shipping-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
   spring_profile = var.spring_profile
+  health_check_path = "/shipping-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "shipping-service" }
@@ -211,6 +214,7 @@ module "api-gateway" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:gateway"
   spring_profile = var.spring_profile
   container_port = 8080
+  health_check_path = "/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "api-gateway" }
