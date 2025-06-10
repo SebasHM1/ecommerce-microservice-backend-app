@@ -7,7 +7,7 @@ provider "kubernetes" {}
 # Crea el namespace "dev" si no existe. Gracias a tu RBAC, Jenkins puede hacerlo.
 resource "kubernetes_namespace" "env_ns" {
   metadata {
-    name = "prod"
+    name = "stage"
   }
 }
 
@@ -55,7 +55,7 @@ resource "kubernetes_deployment" "zipkin" {
 
   metadata {
     name      = "zipkin"
-    namespace = "dev"
+    namespace = "stage"
     labels    = { app = "zipkin" }
   }
 
@@ -80,7 +80,7 @@ resource "kubernetes_service" "zipkin" {
 
   metadata {
     name      = "zipkin"
-    namespace = "dev"
+    namespace = "stage"
   }
   spec {
     selector = { app = "zipkin" }
