@@ -1,42 +1,38 @@
 # terraform/modules/microservice/main.tf
 
-# Recurso que define el Deployment en Kubernetes
 resource "kubernetes_deployment" "app" {
   metadata {
     name      = var.name
     namespace = var.namespace
-    labels    = merge({ app = var.name }, var.labels)
+    labels    = { app = var.name }
   }
 
   spec {
     replicas = var.replicas
-
-    selector {
-      match_labels = {
-        app = var.name
-      }
-    }
-
+    selector { match_labels = { app = var.name } }
     template {
-      metadata {
-        labels = merge({ app = var.name }, var.labels)
-      }
-
+      metadata { labels = { app = var.name } }
       spec {
+        # --- INIT CONTAINERS DINÁMICOS ---
+        dynamic "init_container" {
+          for_each = var.init_containers_config
+          content {
+            name    = init_container.value.name
+            image   = init_container.value.image
+            command = init_container.value.command
+          }
+        }
+
         container {
           image = var.image
           name  = var.name
-          
-          port {
-            container_port = var.container_port
-          }
+          port { container_port = var.container_port }
 
+          # --- VARIABLES DE ENTORNO DINÁMICAS ---
           env {
             name  = "SPRING_PROFILES_ACTIVE"
             value = var.spring_profile
           }
-
-          # Bucle que crea dinámicamente los bloques 'env' a partir del mapa
           dynamic "env" {
             for_each = var.env_vars
             content {
@@ -45,23 +41,22 @@ resource "kubernetes_deployment" "app" {
             }
           }
 
-          # BUENA PRÁCTICA: Añadir sondas de salud
+          # --- SONDAS DE SALUD DINÁMICAS ---
           liveness_probe {
             http_get {
-              path = "/actuator/health/liveness"
+              path = "${var.health_check_path}/liveness"
               port = var.container_port
             }
-            initial_delay_seconds = 60 # Dar tiempo a que Spring arranque
+            initial_delay_seconds = 180 # Aumentamos el delay inicial, es más seguro
             period_seconds        = 15
             timeout_seconds       = 5
           }
-
           readiness_probe {
             http_get {
-              path = "/actuator/health/readiness"
+              path = var.health_check_path
               port = var.container_port
             }
-            initial_delay_seconds = 30
+            initial_delay_seconds = 60 # Aumentamos el delay inicial
             period_seconds        = 10
             timeout_seconds       = 5
           }
@@ -71,24 +66,17 @@ resource "kubernetes_deployment" "app" {
   }
 }
 
-# Recurso que define el Service de tipo ClusterIP
 resource "kubernetes_service" "app" {
   metadata {
     name      = var.name
     namespace = var.namespace
-    labels    = merge({ app = var.name }, var.labels)
   }
-  
   spec {
-    selector = {
-      app = var.name
-    }
-    
+    selector = { app = var.name }
     port {
-      port        = 8080 # El puerto del servicio
-      target_port = var.container_port # El puerto del contenedor
+      port        = var.container_port
+      target_port = var.container_port
     }
-    
     type = "ClusterIP"
   }
 }

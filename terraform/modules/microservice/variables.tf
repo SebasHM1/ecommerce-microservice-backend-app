@@ -41,5 +41,21 @@ variable "labels" {
 variable "env_vars" {
   description = "Un mapa de variables de entorno para inyectar en el contenedor."
   type        = map(string)
-  default     = {} # Por defecto, no hay variables extra.
+  default     = {}
+}
+
+variable "init_containers_config" {
+  description = "Una lista de mapas, donde cada mapa define un initContainer."
+  type = list(object({
+    name    = string
+    image   = string
+    command = list(string)
+  }))
+  default = [] # Por defecto, no hay initContainers
+}
+
+variable "health_check_path" {
+  description = "La ruta para las sondas de salud (ej. /actuator/health)."
+  type        = string
+  default     = "/actuator/health"
 }

@@ -60,68 +60,92 @@ resource "kubernetes_service" "zipkin" {
 }
 
 # ==============================================================================
-# NIVEL 1: Despliegue del Servidor de Configuración (Cloud Config)
+# NIVEL 1: Infraestructura Central
 # ==============================================================================
 module "cloud-config" {
   source = "../modules/microservice"
-  
-  # Asegura que el namespace y zipkin se creen primero
-  depends_on = [kubernetes_deployment.zipkin]
+  depends_on = [resource.kubernetes_deployment.zipkin]
 
   name           = "cloud-config"
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:config"
   spring_profile = var.spring_profile
-  container_port = 9296 # Puerto específico de cloud-config
+  container_port = 9296
+
+  init_containers_config = [
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do sleep 5; done"]
+    }
+  ]
+  env_vars = {
+    "SPRING_ZIPKIN_BASE_URL" = "http://zipkin.dev.svc.cluster.local:9411/"
+    "EUREKA_INSTANCE"        = "cloud-config"
+  }
 }
 
-# ==============================================================================
-# NIVEL 3: Despliegue del Descubrimiento de Servicios (Eureka)
-# ==============================================================================
 module "service-discovery" {
   source = "../modules/microservice"
-
-  # ¡DEPENDENCIA CLAVE! Se crea solo después de que cloud-config esté definido.
-  depends_on = [module.cloud-config]
+  depends_on = [resource.kubernetes_deployment.zipkin]
 
   name           = "service-discovery"
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:discovery"
   spring_profile = var.spring_profile
-  container_port = 8761 # Puerto específico de service-discovery
+  container_port = 8761
+
+  env_vars = {
+    "SPRING_ZIPKIN_BASE_URL" = "http://zipkin.dev.svc.cluster.local:9411/"
+  }
 }
 
 # ==============================================================================
-# NIVEL 3: Despliegue Secuencial de Aplicaciones 1x1
+# NIVEL 2: Servicios de Aplicación
 # ==============================================================================
+# Un mapa local para definir las variables de entorno comunes
+locals {
+  common_app_env_vars = {
+    "EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE" = "http://service-discovery.dev.svc.cluster.local:8761/eureka"
+    "SPRING_CONFIG_IMPORT"                  = "optional:configserver:http://cloud-config.dev.svc.cluster.local:9296"
+    "SPRING_ZIPKIN_BASE_URL"                = "http://zipkin.dev.svc.cluster.local:9411/"
+  }
+}
 
-# 3.1: User Service (Entidad fundamental)
 module "user-service" {
   source = "../modules/microservice"
-  depends_on = [module.service-discovery] # Depende de la infra
+  depends_on = [module.cloud-config, module.service-discovery]
 
   name           = "user-service"
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:users"
   spring_profile = var.spring_profile
+  container_port = 8700
+  health_check_path = "/user-service/actuator/health"
 
-  env_vars = {
-    "SPRING_CONFIG_IMPORT"                  = "optional:configserver:http://cloud-config.dev.svc.cluster.local:9296"
-    "EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE" = "http://service-discovery.dev.svc.cluster.local:8761/eureka"
-    "SPRING_ZIPKIN_BASE_URL"                = "http://zipkin.dev.svc.cluster.local:9411/"
-  }
-
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "user-service" }
+  )
 }
 
-# 3.2: Product Service (Entidad de catálogo)
+# --- Y ahora replica este patrón para cada uno de tus otros servicios ---
+
 module "product-service" {
   source = "../modules/microservice"
-  depends_on = [module.user-service] # Espera a que user-service esté definido
+  depends_on = [module.user-service] # O las dependencias que correspondan
 
   name           = "product-service"
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:product"
   spring_profile = var.spring_profile
+  container_port = 8500
+  health_check_path = "/product-service/actuator/health"
+
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "product-service" }
+  )
 }
 
 # 3.3: Order Service (Lógica de negocio principal)
