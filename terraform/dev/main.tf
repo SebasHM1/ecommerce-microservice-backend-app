@@ -76,50 +76,72 @@ module "cloud-config" {
 }
 
 # ==============================================================================
-# NIVEL 2: Despliegue del Descubrimiento de Servicios (Eureka)
+# NIVEL 2: Despliegue Secuencial de Aplicaciones 1x1
 # ==============================================================================
-module "service-discovery" {
+
+# 2.1: User Service (Entidad fundamental)
+module "user-service" {
   source = "../modules/microservice"
+  depends_on = [module.service-discovery] # Depende de la infra
 
-  # ¡DEPENDENCIA CLAVE! Se crea solo después de que cloud-config esté definido.
-  depends_on = [module.cloud-config]
-
-  name           = "service-discovery"
+  name           = "user-service"
   namespace      = "dev"
-  image          = "${var.dockerhub_user}/${var.repo_prefix}:discovery"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:users"
   spring_profile = var.spring_profile
-  container_port = 8761 # Puerto específico de service-discovery
 }
 
-# ==============================================================================
-# NIVEL 3: Despliegue del Resto de Microservicios de la Aplicación
-# ==============================================================================
+# 2.2: Product Service (Entidad de catálogo)
+module "product-service" {
+  source = "../modules/microservice"
+  depends_on = [module.user-service] # Espera a que user-service esté definido
 
-# Mapa local para el resto de los servicios (excluyendo los de infraestructura)
-locals {
-  app_services = {
-    "api-gateway"       = "gateway",
-    "user-service"      = "users",
-    "product-service"   = "product",
-    "order-service"     = "order",
-    "shipping-service"  = "shipping",
-    "payment-service"   = "payment",
-  }
+  name           = "product-service"
+  namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:product"
+  spring_profile = var.spring_profile
 }
 
-# Bucle for_each para desplegar todos los servicios de la aplicación
-module "application_microservices" {
-  for_each = local.app_services
-  
-  # ¡DEPENDENCIA CLAVE! Todos estos servicios dependen de que el Service Discovery
-  # y el Config Server hayan sido definidos.
-  depends_on = [module.service-discovery]
-
+# 2.3: Order Service (Lógica de negocio principal)
+module "order-service" {
   source = "../modules/microservice"
+  depends_on = [module.product-service] # Espera a product-service
 
-  # Asignación de variables para el módulo
-  name           = each.key
+  name           = "order-service"
   namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:order"
   spring_profile = var.spring_profile
-  image          = "${var.dockerhub_user}/${var.repo_prefix}:${each.value}"
+}
+
+# 2.4: Payment Service (Soporte a la orden)
+module "payment-service" {
+  source = "../modules/microservice"
+  depends_on = [module.order-service] # Espera a order-service
+
+  name           = "payment-service"
+  namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:payment"
+  spring_profile = var.spring_profile
+}
+
+# 2.5: Shipping Service (Soporte a la orden)
+module "shipping-service" {
+  source = "../modules/microservice"
+  depends_on = [module.payment-service] # Espera a payment-service
+
+  name           = "shipping-service"
+  namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
+  spring_profile = var.spring_profile
+}
+
+# 2.6: API Gateway (Punto de entrada final)
+module "api-gateway" {
+  source = "../modules/microservice"
+  # Espera a que el último servicio de la cadena esté definido
+  depends_on = [module.shipping-service]
+
+  name           = "api-gateway"
+  namespace      = "dev"
+  image          = "${var.dockerhub_user}/${var.repo_prefix}:gateway"
+  spring_profile = var.spring_profile
 }
