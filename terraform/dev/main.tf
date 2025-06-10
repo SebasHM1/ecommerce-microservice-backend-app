@@ -126,7 +126,6 @@ module "user-service" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:users"
   spring_profile = var.spring_profile
   container_port = 8700
-  health_check_path = "/user-service/actuator/health"
 
   env_vars = merge(
     local.common_app_env_vars,
@@ -144,6 +143,14 @@ module "product-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:product"
   spring_profile = var.spring_profile
+
+  container_port = 8500
+
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "product-service" }
+  )
+
 }
 
 # 3.3: Order Service (Lógica de negocio principal)
@@ -155,6 +162,11 @@ module "order-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:order"
   spring_profile = var.spring_profile
+  container_port   = 8300
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "order-service" }
+  )
 }
 
 # 3.4: Payment Service (Soporte a la orden)
@@ -166,6 +178,11 @@ module "payment-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:payment"
   spring_profile = var.spring_profile
+  container_port   = 8400
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "payment-service" }
+  )
 }
 
 # 3.5: Shipping Service (Soporte a la orden)
@@ -177,6 +194,10 @@ module "shipping-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
   spring_profile = var.spring_profile
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "shipping-service" }
+  )
 }
 
 # 3.6: API Gateway (Punto de entrada final)
@@ -189,4 +210,10 @@ module "api-gateway" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:gateway"
   spring_profile = var.spring_profile
+  container_port = 8080
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "api-gateway" }
+  )
+  
 }
