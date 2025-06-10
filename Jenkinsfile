@@ -284,7 +284,7 @@ spec:
         stage('Deploy Infrastructure with Terraform') {
             steps {
                 // Entramos al directorio del entorno que corresponde a la rama actual
-                dir("terraform/${TERRAFORM_ENV_DIR}") {
+                dir("terraform/modules/${TERRAFORM_ENV_DIR}") {
                     script {
                         echo "===================================================================="
                         echo "Running Terraform for environment: ${TERRAFORM_ENV_DIR}"
