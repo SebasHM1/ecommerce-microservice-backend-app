@@ -70,7 +70,7 @@ module "microservice" {
   spring_profile = var.spring_profile
 
   # Construcción dinámica de la URL de la imagen completa
-  image = "${var.dockerhub_user}/${var.repo_prefix}:${each.value}${var.image_tag_suffix}"
+  image = "${var.dockerhub_user}/${var.repo_prefix}:${each.value}"
 
   # Se pueden sobrescribir valores por defecto para servicios específicos.
   # Por ejemplo, si 'user-service' necesitara 2 réplicas en dev:
