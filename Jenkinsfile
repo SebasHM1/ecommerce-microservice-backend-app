@@ -58,7 +58,7 @@ spec:
     }
 
     stages {
-        /*
+        
         // ==================================================================
         // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
         // ==================================================================
@@ -83,7 +83,7 @@ spec:
                 }
             }
         }
-    
+        /*
         stage('Compile and Test All Services') {
             steps {
                 script {
