@@ -83,7 +83,7 @@ spec:
                 }
             }
         }
-        /*
+        
         stage('Compile and Test All Services') {
             steps {
                 script {
@@ -161,7 +161,7 @@ spec:
                 }
             }
         }
-        */
+        
         // ==================================================================
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================
