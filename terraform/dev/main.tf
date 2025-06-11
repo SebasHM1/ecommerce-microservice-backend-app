@@ -66,7 +66,10 @@ module "cloud-config" {
   source = "../modules/microservice"
   
   # Asegura que el namespace y zipkin se creen primero
-  depends_on = [kubernetes_deployment.zipkin]
+  depends_on = [
+    kubernetes_namespace.created,
+    kubernetes_deployment.zipkin
+    ]
 
   name           = "cloud-config"
   namespace      = "dev"
