@@ -179,10 +179,12 @@ spec:
 
         stage('Approval: Promote to STAGING?') {
             steps {
-                // Puerta de aprobación manual que detiene el pipeline.
-                input id: 'promoteToStagingGate', 
-                      message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
-                      submitter: 'admin,release-managers' 
+                // El pipeline abortará automáticamente después de 30 minutos si nadie interactúa.
+                timeout(time: 15, unit: 'MINUTES') {
+                    input id: 'promoteToStagingGate', 
+                          message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
+                          submitter: 'admin,release-managers' 
+                }
             }
         }
 
@@ -209,9 +211,11 @@ spec:
 
         stage('Approval: Promote to PRODUCTION?') {
             steps {
+                timeout(time: 15, unit: 'MINUTES') {
                 input id: 'promoteToProdGate',
                       message: "¡PELIGRO! El artefacto ID '${IMAGE_TAG_SUFFIX}' fue validado en STAGING. ¿Aprobar despliegue a PRODUCCIÓN?", 
                       submitter: 'admin,cto' 
+                }
             }
         }
 
