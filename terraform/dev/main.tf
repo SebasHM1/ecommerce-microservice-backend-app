@@ -154,6 +154,18 @@ module "product-service" {
 
   container_port = 8500
   health_check_path = "/product-service/actuator/health"
+  init_containers_config = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.dev.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "product-service" }
@@ -172,6 +184,18 @@ module "order-service" {
   spring_profile = var.spring_profile
   container_port   = 8300
   health_check_path = "/order-service/actuator/health"
+  init_containers_config = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.dev.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "order-service" }
@@ -189,6 +213,18 @@ module "payment-service" {
   spring_profile = var.spring_profile
   container_port   = 8400
   health_check_path = "/payment-service/actuator/health"
+  init_containers_config = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.dev.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "payment-service" }
@@ -219,7 +255,7 @@ module "shipping-service" {
       command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
     }
   ]
-  
+
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "shipping-service" }
@@ -238,6 +274,18 @@ module "api-gateway" {
   spring_profile = var.spring_profile
   container_port = 8080
   health_check_type = "command"
+  init_containers_config = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.dev.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "api-gateway" }
