@@ -54,8 +54,8 @@ variable "init_containers_config" {
   default = [] # Por defecto, no hay initContainers
 }
 
-variable "health_check_path" {
-  description = "La ruta para las sondas de salud (ej. /actuator/health)."
+variable "health_check_type" {
+  description = "Tipo de sonda de salud: 'http' o 'command'."
   type        = string
-  default     = "/actuator/health"
+  default     = "http"
 }

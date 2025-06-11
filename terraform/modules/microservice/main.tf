@@ -42,24 +42,54 @@ resource "kubernetes_deployment" "app" {
           }
 
           # --- SONDAS DE SALUD DINÁMICAS ---
-          liveness_probe {
-            http_get {
-              path = "${var.health_check_path}/liveness"
-              port = var.container_port
+          dynamic "liveness_probe" {
+            for_each = var.health_check_type == "http" ? [1] : []
+            content {
+              http_get {
+                path = "${var.health_check_path}/liveness"
+                port = var.container_port
+              }
+              initial_delay_seconds = 180
+              period_seconds        = 15
+              timeout_seconds       = 5
             }
-            initial_delay_seconds = 180 # Aumentamos el delay inicial, es más seguro
-            period_seconds        = 15
-            timeout_seconds       = 5
           }
-          readiness_probe {
-            http_get {
-              path = var.health_check_path
-              port = var.container_port
+          
+          dynamic "liveness_probe" {
+            for_each = var.health_check_type == "command" ? [1] : []
+            content {
+              exec {
+                command = ["sh", "-c", "exit 0"] # Siempre devuelve éxito
+              }
+              initial_delay_seconds = 180
+              period_seconds        = 15
             }
-            initial_delay_seconds = 60 # Aumentamos el delay inicial
-            period_seconds        = 10
-            timeout_seconds       = 5
           }
+
+          dynamic "readiness_probe" {
+            for_each = var.health_check_type == "http" ? [1] : []
+            content {
+              http_get {
+                path = var.health_check_path
+                port = var.container_port
+              }
+              initial_delay_seconds = 60
+              period_seconds        = 10
+              timeout_seconds       = 5
+            }
+          }
+
+          dynamic "readiness_probe" {
+            for_each = var.health_check_type == "command" ? [1] : []
+            content {
+              exec {
+                command = ["sh", "-c", "exit 0"] # Siempre devuelve éxito
+              }
+              initial_delay_seconds = 60
+              period_seconds        = 10
+            }
+          }
+        }
         }
       }
     }

@@ -124,11 +124,22 @@ module "user-service" {
   spring_profile = var.spring_profile
   container_port = 8700
   health_check_path = "/user-service/actuator/health"
+  init_containers_config = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.dev.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.dev.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "user-service" }
   )
-
 }
 
 # 3.2: Product Service (Entidad de catálogo)
@@ -194,6 +205,7 @@ module "shipping-service" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
   spring_profile = var.spring_profile
   container_port   = 8600
+  health_check_path = "/payment-service/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "shipping-service" }
@@ -211,7 +223,7 @@ module "api-gateway" {
   image          = "${var.dockerhub_user}/${var.repo_prefix}:gateway"
   spring_profile = var.spring_profile
   container_port = 8080
-  health_check_path = "/actuator/health"
+  health_check_type = "command"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "api-gateway" }
