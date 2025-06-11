@@ -94,7 +94,6 @@ module "cloud-config" {
 # ==============================================================================
 module "service-discovery" {
   source = "../modules/microservice"
-  depends_on = [module.cloud-config]
 
   name           = "service-discovery"
   namespace      = var.k8s_namespace # Usar la variable de namespace

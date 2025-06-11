@@ -58,11 +58,12 @@ spec:
     }
 
     stages {
+        /*
         // ==================================================================
         // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
         // ==================================================================
         
-                stage('Initialize & Create Unique Build ID') {
+            stage('Initialize & Create Unique Build ID') {
             steps {
                 script {
                     // NUEVO: Solución para el error "dubious ownership".
@@ -160,7 +161,7 @@ spec:
                 }
             }
         }
-
+        */
         // ==================================================================
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================

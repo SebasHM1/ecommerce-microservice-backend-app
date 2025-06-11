@@ -1,20 +1,5 @@
 # terraform/dev/variables.tf
 
-variable "image_tag_suffix" {
-  description = "El sufijo de la tag de la imagen a desplegar (ej. '-dev', '-stage-123')."
-  type        = string
-}
-
-variable "dockerhub_user" {
-  description = "Usuario de Docker Hub."
-  type        = string
-}
-
-variable "repo_prefix" {
-  description = "El prefijo del repositorio en Docker Hub."
-  type        = string
-}
-
 variable "service_images" {
   type = map(string)
   description = "Un mapa de nombres de servicio a la URL COMPLETA de la imagen Docker a desplegar. Jenkins sobreescribirá estos valores."
@@ -36,7 +21,15 @@ variable "service_images" {
 }
 
 
+
+variable "k8s_namespace" {
+  description = "El namespace de Kubernetes donde se desplegarán los recursos."
+  type        = string
+  default     = "dev"
+}
+
 variable "spring_profile" {
   description = "Perfil de Spring a activar para las aplicaciones."
   type        = string
+  default     = "dev"
 }
