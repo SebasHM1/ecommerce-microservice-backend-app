@@ -196,7 +196,7 @@ module "shipping-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
   spring_profile = var.spring_profile
-  health_check_path = "/shipping-service/actuator/health"
+  health_check_path = "/actuator/health"
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "shipping-service" }
