@@ -59,3 +59,9 @@ variable "health_check_type" {
   type        = string
   default     = "http"
 }
+
+# --- ¡AÑADE ESTA VARIABLE FALTANTE! ---
+variable "health_check_path" {
+  description = "La ruta para las sondas de salud HTTP (ej. /actuator/health)."
+  type        = string
+  default     = "/actuator/health"
