@@ -62,11 +62,15 @@ spec:
         // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
         // ==================================================================
         
-        stage('Initialize & Create Unique Build ID') {
+                stage('Initialize & Create Unique Build ID') {
             steps {
                 script {
-                    // Generamos el identificador único para esta build usando el git hash.
-                    // Este valor se asigna a IMAGE_TAG_SUFFIX, que ahora es nuestro ID inmutable.
+                    // NUEVO: Solución para el error "dubious ownership".
+                    // Añadimos el directorio del workspace actual a la lista de directorios seguros de Git.
+                    // Usamos la variable de entorno ${WORKSPACE} de Jenkins para que sea genérico y no dependa del nombre del job.
+                    sh "git config --global --add safe.directory ${WORKSPACE}"
+
+                    // Ahora, este comando se ejecutará sin problemas de permisos.
                     def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     IMAGE_TAG_SUFFIX = gitCommit // Ej: a1b2c3d
                     
