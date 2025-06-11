@@ -125,8 +125,8 @@ spec:
                         def serviceToBaseTagMap = [
                             'service-discovery': 'discovery', 'cloud-config': 'config', 'api-gateway': 'gateway',
                             'proxy-client': 'proxy', 'order-service': 'order', 'product-service': 'product',
-                            'user-service': 'users', 'shipping-service': 'shipping', 'payment-service': 'payment',
-                            'favourite-service': 'favourite'
+                            'user-service': 'users', 'shipping-service': 'shipping', 'payment-service': 'payment
+                            //'favourite-service': 'favourite'
                         ]
                         
                         // Usamos un mapa local para construir las URLs de las imágenes.
