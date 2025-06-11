@@ -193,7 +193,7 @@ module "shipping-service" {
   namespace      = "dev"
   image          = "${var.dockerhub_user}/${var.repo_prefix}:shipping"
   spring_profile = var.spring_profile
-    container_port   = 8600
+  container_port   = 8600
   env_vars = merge(
     local.common_app_env_vars,
     { "EUREKA_INSTANCE" = "shipping-service" }
