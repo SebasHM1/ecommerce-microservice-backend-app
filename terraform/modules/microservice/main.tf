@@ -90,7 +90,7 @@ resource "kubernetes_deployment" "app" {
             }
           }
         }
-        }
+        
       }
     }
   }
