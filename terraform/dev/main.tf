@@ -4,15 +4,10 @@
 provider "kubernetes" {}
 
 # ==============================================================================
-# Patrón de Creación Condicional para el Namespace (Se mantiene igual)
+# GESTIÓN DEL NAMESPACE: Simple y Directa
 # ==============================================================================
-data "kubernetes_namespace" "existing" {
-  metadata {
-    name = "dev"
-  }
-}
-resource "kubernetes_namespace" "created" {
-  count = data.kubernetes_namespace.existing.id == null ? 1 : 0
+# Terraform es ahora el dueño de este recurso. Lo creará si no existe en el estado.
+resource "kubernetes_namespace" "dev" {
   metadata {
     name = "dev"
   }
@@ -22,7 +17,7 @@ resource "kubernetes_namespace" "created" {
 # NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
 # ==============================================================================
 resource "kubernetes_deployment" "zipkin" {
-  depends_on = [kubernetes_namespace.created]
+  depends_on = [kubernetes_namespace.dev]
   metadata {
     name      = "zipkin"
     namespace = "dev"
@@ -67,7 +62,6 @@ module "cloud-config" {
   
   # Asegura que el namespace y zipkin se creen primero
   depends_on = [
-    kubernetes_namespace.created,
     kubernetes_deployment.zipkin
     ]
 
