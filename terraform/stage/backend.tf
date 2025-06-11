@@ -1,16 +1,12 @@
-# terraform/dev/backend.tf
+# terraform/prod/backend.tf
 
 terraform {
   backend "kubernetes" {
-    # El sufijo del Secret donde se guardará el estado. Será "tfstate-dev"
-    secret_suffix    = "state-stage" 
+    # El sufijo sigue siendo específico para el entorno 'stage'
+    secret_suffix    = "stage" # El Secret se llamará 'tfstate-stage'
     
-    # El namespace donde se creará el Secret del estado.
-    # Es crucial que este namespace exista. Jenkins tiene permisos para crearlo.
-    namespace        = "stage" 
-    
-    # Dentro del pod de Jenkins, no se necesita un path explícito,
-    # Terraform usará automáticamente el ServiceAccount del pod.
-    # config_path      = "~/.kube/config" # No es necesario en el pod
+    # ¡CAMBIO CLAVE! Guardamos el estado en el namespace 'jenkins'.
+    # Este namespace es estable y no se borra con los despliegues.
+    namespace        = "jenkins" 
   }
 }

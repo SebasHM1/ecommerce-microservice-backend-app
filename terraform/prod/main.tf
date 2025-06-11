@@ -1,96 +1,32 @@
-# terraform/prod/main.tf
+# terraform/dev/main.tf
 
 # Define el proveedor que usará Terraform. 
-# El bloque vacío significa que tomará la configuración del entorno (el ServiceAccount del pod de Jenkins).
+# La configuración se toma del contexto activo de KUBECONFIG.
 provider "kubernetes" {}
 
 # ==============================================================================
-# Patrón de Creación Condicional para el Namespace
+# GESTIÓN DEL NAMESPACE: Dinámico y Reutilizable
 # ==============================================================================
-
-# 1. Intenta LEER el namespace usando una data source.
-#    Si el namespace no existe, este data source quedará "vacío" o sin resolver,
-#    pero no detendrá el plan gracias al paso siguiente.
-data "kubernetes_namespace" "existing" {
+# Ahora el nombre del namespace se toma de una variable.
+# Esto permite que este mismo main.tf funcione para 'dev', 'stage' y 'prod'.
+resource "kubernetes_namespace" "env_namespace" {
   metadata {
-    name = "prod"
-  }
-}
-
-# 2. DEFINE el recurso del namespace, pero con una condición de creación.
-#    Este es el núcleo de la lógica.
-resource "kubernetes_namespace" "created" {
-  # count será 1 (créalo) si el ID del data source es nulo (no se encontró).
-  # count será 0 (no hagas nada) si el ID tiene un valor (se encontró).
-  count = data.kubernetes_namespace.existing.id == null ? 1 : 0
-
-  metadata {
-    name = "prod"
+    name = var.k8s_namespace
   }
 }
 
 # ==============================================================================
-# El resto de tu código ahora usa el nombre del namespace directamente,
-# ya que está garantizado que existirá después del bloque anterior.
+# NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
 # ==============================================================================
-
-# Un mapa local para no repetirnos. Mapea el nombre del servicio al nombre de su imagen.
-locals {
-  services = {
-    "service-discovery" = "discovery",
-    "cloud-config"      = "config",
-    "api-gateway"       = "gateway",
-    "user-service"      = "users",
-    "product-service"   = "product",
-    "order-service"     = "order",
-    "shipping-service"  = "shipping",
-    "payment-service"   = "payment",
-    # Añade aquí tus otros servicios como proxy-client, favourite-service, etc.
-  }
-}
-
-# Bucle "for_each" que itera sobre el mapa `locals.services`
-# y crea una instancia de nuestro módulo `microservice` para cada uno.
-module "microservice" {
-  for_each = local.services
-  
-  # Añadimos una dependencia explícita para asegurar que el namespace se evalúe primero.
-  # Esto asegura que Terraform resuelva la data source y el recurso condicional antes de continuar.
-  depends_on = [
-    data.kubernetes_namespace.existing,
-    kubernetes_namespace.created
-  ]
-
-  # Ruta relativa al módulo que creamos en la Fase 1
-  source = "../modules/microservice"
-
-  # Asignación de variables para el módulo
-  name           = each.key # El nombre del servicio, ej. "api-gateway"
-  namespace      = "prod" # Podemos usar el valor hardcodeado porque está garantizado que existe
-  spring_profile = var.spring_profile
-
-  # Construcción dinámica de la URL de la imagen completa
-  image = "${var.dockerhub_user}/${var.repo_prefix}:${each.value}"
-
-  # Se pueden sobrescribir valores por defecto para servicios específicos.
-  # Por ejemplo, si 'user-service' necesitara 2 réplicas en prod:
-  # replicas = each.key == "user-service" ? 2 : 1
-}
-
-# Manejo de casos especiales que no encajan en el módulo, como Zipkin.
 resource "kubernetes_deployment" "zipkin" {
-  # Aseguramos que se despliegue después de que el namespace se evalúe.
-  depends_on = [
-    data.kubernetes_namespace.existing,
-    kubernetes_namespace.created
-  ]
-
+  # Dependencia explícita en la creación del namespace.
+  depends_on = [kubernetes_namespace.env_namespace]
+  
   metadata {
     name      = "zipkin"
-    namespace = "prod" # Usamos el valor directamente
+    namespace = var.k8s_namespace # Usar la variable de namespace
     labels    = { app = "zipkin" }
   }
-
   spec {
     replicas = 1
     selector { match_labels = { app = "zipkin" } }
@@ -99,22 +35,20 @@ resource "kubernetes_deployment" "zipkin" {
       spec {
         container {
           name  = "zipkin"
-          image = "openzipkin/zipkin:latest"
+          # CAMBIO: La imagen de Zipkin ahora también viene del mapa.
+          # Esto te da la flexibilidad de actualizarla desde Jenkins si lo necesitas.
+          image = var.service_images["zipkin"]
           port { container_port = 9411 }
         }
       }
     }
   }
 }
-
 resource "kubernetes_service" "zipkin" {
-  # El deployment de zipkin ya depende del namespace, así que esta dependencia es implícita,
-  # pero ser explícito no hace daño.
   depends_on = [kubernetes_deployment.zipkin]
-
   metadata {
     name      = "zipkin"
-    namespace = "prod" # Usamos el valor directamente
+    namespace = var.k8s_namespace # Usar la variable de namespace
   }
   spec {
     selector = { app = "zipkin" }
@@ -125,3 +59,198 @@ resource "kubernetes_service" "zipkin" {
     type = "ClusterIP"
   }
 }
+
+# ==============================================================================
+# NIVEL 1: Despliegue del Servidor de Configuración (Cloud Config)
+# ==============================================================================
+module "cloud-config" {
+  source = "../modules/microservice"
+  depends_on = [kubernetes_deployment.zipkin]
+
+  name           = "cloud-config"
+  namespace      = var.k8s_namespace # Usar la variable de namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images' para obtener la URL completa de la imagen.
+  image          = var.service_images["config"] 
+  spring_profile = var.spring_profile
+  container_port = 9296
+
+  init_containers_config = [
+    {
+      name    = "wait-for-service-discovery"
+      # URL dinámica usando la variable de namespace
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "until curl -s -f http://service-discovery.${var.k8s_namespace}.svc.cluster.local:8761/actuator/health; do sleep 5; done"]
+    }
+  ]
+  env_vars = {
+    # URL dinámica usando la variable de namespace
+    "SPRING_ZIPKIN_BASE_URL" = "http://zipkin.${var.k8s_namespace}.svc.cluster.local:9411/"
+    "EUREKA_INSTANCE"        = "cloud-config"
+  }
+}
+
+# ==============================================================================
+# NIVEL 2: Despliegue del Descubrimiento de Servicios (Eureka)
+# ==============================================================================
+module "service-discovery" {
+  source = "../modules/microservice"
+  depends_on = [module.cloud-config]
+
+  name           = "service-discovery"
+  namespace      = var.k8s_namespace # Usar la variable de namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["discovery"]
+  spring_profile = var.spring_profile
+  container_port = 8761
+}
+
+# ==============================================================================
+# NIVEL 3: Despliegue Secuencial de Aplicaciones
+# ==============================================================================
+
+locals {
+  # 'locals' ahora construye las URLs dinámicamente usando la variable del namespace.
+  # Esto hace que todo el bloque sea reutilizable para cualquier entorno.
+  common_app_env_vars = {
+    "EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE" = "http://service-discovery.${var.k8s_namespace}.svc.cluster.local:8761/eureka"
+    "SPRING_CONFIG_IMPORT"                  = "optional:configserver:http://cloud-config.${var.k8s_namespace}.svc.cluster.local:9296"
+    "SPRING_ZIPKIN_BASE_URL"                = "http://zipkin.${var.k8s_namespace}.svc.cluster.local:9411/"
+  }
+
+  # 'locals' para los init containers para no repetir el mismo bloque 10 veces (DRY: Don't Repeat Yourself)
+  init_containers_wait_for_infra = [
+    {
+      name    = "wait-for-cloud-config"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Cloud Config...; until curl -s -f http://cloud-config.${var.k8s_namespace}.svc.cluster.local:9296/actuator/health; do echo -n .; sleep 5; done; echo; echo Cloud Config is UP"]
+    },
+    {
+      name    = "wait-for-service-discovery"
+      image   = "curlimages/curl:7.85.0"
+      command = ["sh", "-c", "echo Waiting for Service Discovery...; until curl -s -f http://service-discovery.${var.k8s_namespace}.svc.cluster.local:8761/actuator/health; do echo -n .; sleep 5; done; echo; echo Service Discovery is UP"]
+    }
+  ]
+}
+
+# 3.1: User Service
+module "user-service" {
+  source = "../modules/microservice"
+  depends_on = [module.service-discovery]
+
+  name           = "user-service"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["users"]
+  spring_profile = var.spring_profile
+  container_port = 8700
+  health_check_path = "/user-service/actuator/health"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "user-service" }
+  )
+}
+
+# 3.2: Product Service
+module "product-service" {
+  source = "../modules/microservice"
+  depends_on = [module.user-service]
+
+  name           = "product-service"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["product"]
+  spring_profile = var.spring_profile
+  container_port = 8500
+  health_check_path = "/product-service/actuator/health"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "product-service" }
+  )
+}
+
+# 3.3: Order Service
+module "order-service" {
+  source = "../modules/microservice"
+  depends_on = [module.product-service]
+
+  name           = "order-service"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["order"]
+  spring_profile = var.spring_profile
+  container_port   = 8300
+  health_check_path = "/order-service/actuator/health"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "order-service" }
+  )
+}
+
+# 3.4: Payment Service
+module "payment-service" {
+  source = "../modules/microservice"
+  depends_on = [module.order-service]
+
+  name           = "payment-service"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["payment"]
+  spring_profile = var.spring_profile
+  container_port   = 8400
+  health_check_path = "/payment-service/actuator/health"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "payment-service" }
+  )
+}
+
+# 3.5: Shipping Service
+module "shipping-service" {
+  source = "../modules/microservice"
+  depends_on = [module.payment-service]
+
+  name           = "shipping-service"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["shipping"]
+  spring_profile = var.spring_profile
+  container_port   = 8600
+  health_check_type = "command"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "shipping-service" }
+  )
+}
+
+# 3.6: API Gateway
+module "api-gateway" {
+  source = "../modules/microservice"
+  depends_on = [module.shipping-service]
+
+  name           = "api-gateway"
+  namespace      = var.k8s_namespace
+  # CAMBIO CLAVE: Usamos el mapa 'service_images'
+  image          = var.service_images["gateway"]
+  spring_profile = var.spring_profile
+  container_port = 8080
+  health_check_type = "command"
+  init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
+  env_vars = merge(
+    local.common_app_env_vars,
+    { "EUREKA_INSTANCE" = "api-gateway" }
+  )
+}
+
+# Continúa con los demás servicios como proxy-client, favourite-service, etc.,
+# siguiendo el mismo patrón. Por ejemplo:
+
+# module "proxy-client" {
+#   ...
+#   image = var.service_images["proxy"]
+#   ...
+# }
