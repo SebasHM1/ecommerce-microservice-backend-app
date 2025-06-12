@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     # Para Python y pip (necesario para Locust)
     python3 \
     python3-pip \
+    # Instalar lsb-release, que es una dependencia para Trivy
+    lsb-release \
     # Para kubectl (descarga e instala)
     && echo "Installing kubectl..." \
     && curl -sLO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -39,6 +41,12 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     && wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
     && unzip -o terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/ \
     && rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
+    # NUEVO: Instalar Trivy
+    && echo "Installing Trivy..." \
+    && wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | tee /usr/share/keyrings/trivy.gpg > /dev/null \
+    && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
+    && apt-get update \
+    && apt-get install -y -qq trivy \
     # Instalar Node.js (esto también instalará npm)
     && echo "Installing Node.js..." \
     && apt-get install -y -qq nodejs \
@@ -65,6 +73,7 @@ RUN echo "Java version:" && java -version \
     && echo "Python3 version:" && python3 --version \
     && echo "pip3 version:" && pip3 --version \
     && echo "Locust version:" && locust --version \
-    && echo "Terraform version:" && terraform --version 
+    && echo "Terraform version:" && terraform --version \
+    && echo "Trivy version:" && trivy --version
 
 # El ENTRYPOINT/CMD del contenedor 'tools' se anulará con 'sleep infinity' en el Jenkinsfile.

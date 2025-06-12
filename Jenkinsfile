@@ -138,6 +138,7 @@ spec:
         TERRAFORM_SERVICE_IMAGES_VAR = ""
         SONAR_SERVER_NAME = "MiSonarQubeLocal"
         SONAR_URL = 'http://host.minikube.internal:9000' 
+        TRIVY_SEVERITY = 'CRITICAL,HIGH'
     }
 
     stages {
@@ -269,8 +270,8 @@ spec:
                             //'favourite-service': 'favourite'
                         ]
                         
-                        // Usamos un mapa local para construir las URLs de las imágenes.
-                        def builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                        // Usamos un mapa local para construir las URLs de las imágenes. Lo movemos afuera para usarlo en el escaneo de Trivvy
+                        script.builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
 
                         for (svcDirName in serviceToBaseTagMap.keySet()) {
                             def baseTag = serviceToBaseTagMap[svcDirName]
@@ -295,8 +296,53 @@ spec:
                         TERRAFORM_SERVICE_IMAGES_VAR = "-var='service_images={${mapAsString}}'"
                         
                         echo "Variable de Terraform preparada: ${TERRAFORM_SERVICE_IMAGES_VAR}"
-                        sh "docker logout"
                     }
+                }
+            }
+        }
+
+        stage('Scan Container Images with Trivy') {
+            steps {
+                script {
+                    // El mapa de imágenes se creó en la etapa anterior.
+                    // Iteramos sobre las imágenes que NOSOTROS construimos (ignorando 'zipkin').
+                    def imagesToScan = script.builtImagesMap.findAll { key, value -> key != 'zipkin' }
+
+                    for (imageEntry in imagesToScan) {
+                        def serviceName = imageEntry.key
+                        def fullImageName = imageEntry.value
+                        def reportFile = "trivy-report-${serviceName}-${IMAGE_TAG_SUFFIX}.html"
+                        
+                        echo "===================================================================="
+                        echo "Escaneando imagen: ${fullImageName}"
+                        echo "Severidades que causarán fallo: ${TRIVY_SEVERITY}"
+                        echo "===================================================================="
+                        
+                        try {
+                            // Usamos un bloque try/catch para asegurarnos de archivar el reporte incluso si el escaneo falla.
+                            sh """
+                                trivy image \\
+                                    --format template \\
+                                    --template "@trivy-templates/html.tpl" \\
+                                    -o ${reportFile} \\
+                                    --exit-code 1 \\
+                                    --severity ${TRIVY_SEVERITY} \\
+                                    --no-progress \\
+                                    ${fullImageName}
+                            """
+                            echo "Escaneo de ${fullImageName} completado. No se encontraron vulnerabilidades críticas o altas."
+                        } catch (Exception e) {
+                            echo "¡ALERTA DE SEGURIDAD! Trivy encontró vulnerabilidades de severidad ${TRIVY_SEVERITY} en ${fullImageName}."
+                            // Abortamos el pipeline inmediatamente. No se debe desplegar una imagen vulnerable.
+                            error("Pipeline abortado debido a vulnerabilidades críticas encontradas por Trivy. Revisa el reporte archivado.")
+                        } finally {
+                            // Archivamos el reporte HTML para poder revisarlo.
+                            archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
+                        }
+                    }
+                    
+                    // Hacemos el logout de Docker Hub al final, después de todos los escaneos.
+                    sh "docker logout"
                 }
             }
         }
