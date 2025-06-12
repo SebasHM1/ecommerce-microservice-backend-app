@@ -318,7 +318,13 @@ spec:
             when {
                 allOf {
                     expression { return !params.RUN_PACKAGE_AND_SCAN }
-                    anyOf { /* ... */ }
+                    anyOf { 
+                        
+                        expression { return params.RUN_DEPLOY_DEV }
+                        expression { return params.RUN_PROMOTE_STAGING }
+                        expression { return params.RUN_PROMOTE_PROD }
+
+                    }
                 }
             }
             steps {
