@@ -1,4 +1,6 @@
 def SONAR_IS_AVAILABLE = false
+// NUEVO: Declaramos el mapa de imágenes como una variable global.
+def builtImagesMap = [:]
 
 // ==================================================================
 // FUNCIONES AUXILIARES REUTILIZABLES
@@ -271,7 +273,7 @@ spec:
                         ]
                         
                         // Usamos un mapa local para construir las URLs de las imágenes. Lo movemos afuera para usarlo en el escaneo de Trivvy
-                        script.builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                        builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
 
                         for (svcDirName in serviceToBaseTagMap.keySet()) {
                             def baseTag = serviceToBaseTagMap[svcDirName]
@@ -306,8 +308,8 @@ spec:
                 script {
                     // El mapa de imágenes se creó en la etapa anterior.
                     // Iteramos sobre las imágenes que NOSOTROS construimos (ignorando 'zipkin').
-                    def imagesToScan = script.builtImagesMap.findAll { key, value -> key != 'zipkin' }
-
+                    def imagesToScan = builtImagesMap.findAll { key, value -> key != 'zipkin' }
+                    
                     for (imageEntry in imagesToScan) {
                         def serviceName = imageEntry.key
                         def fullImageName = imageEntry.value
