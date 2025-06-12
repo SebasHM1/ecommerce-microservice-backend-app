@@ -1,9 +1,19 @@
+// ==================================================================
+// CONFIGURACIÓN GLOBAL Y MAPAS
+// ==================================================================
 def SONAR_IS_AVAILABLE = false
-// NUEVO: Declaramos el mapa de imágenes como una variable global.
 def builtImagesMap = [:]
 
+// NUEVO: Mapa de servicios movido aquí para ser accesible globalmente.
+// Esto es clave para poder reconstruir las variables si nos saltamos la fase de build.
+def serviceToBaseTagMap = [
+    'service-discovery': 'discovery', 'cloud-config': 'config', 'api-gateway': 'gateway',
+    'proxy-client': 'proxy', 'order-service': 'order', 'product-service': 'product',
+    'user-service': 'users', 'shipping-service': 'shipping', 'payment-service': 'payment'
+]
+
 // ==================================================================
-// FUNCIONES AUXILIARES REUTILIZABLES
+// FUNCIONES AUXILIARES REUTILIZABLES (Sin cambios)
 // ==================================================================
 
 /**
@@ -22,8 +32,6 @@ def isSonarQubeAvailable() {
     }
 }
 
-// Esta función ahora es agnóstica al entorno. Simplemente lee las variables
-// de entorno que están activas en el momento de su ejecución.
 void deployWithTerraform() {
     dir("terraform/${TERRAFORM_ENV_DIR}") {
         script {
@@ -34,24 +42,19 @@ void deployWithTerraform() {
             echo "===================================================================="
             
             sh 'terraform init -input=false'
-
             echo "--- Terraform Plan ---"
-            // Se usa la variable TERRAFORM_SERVICE_IMAGES_VAR que ya contiene el mapa formateado.
-            // Esto simplifica el comando y evita problemas de escapado de comillas.
             sh """
             terraform plan -out=tfplan -input=false \\
                 ${TERRAFORM_SERVICE_IMAGES_VAR} \\
                 -var="k8s_namespace=${K8S_NAMESPACE}" \\
                 -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
             """
-
             echo "--- Terraform Apply ---"
             sh 'terraform apply -auto-approve -input=false tfplan'
         }
     }
 }
 
-// Esta función también es agnóstica y se guía por las variables de entorno activas.
 void runEndToEndTests() {
     if (env.RUN_E2E_TESTS == "true") {
         dir('postman-collections') {
@@ -120,23 +123,25 @@ spec:
         }
     }
     
+    // NUEVO: Parámetros para controlar la ejecución del pipeline.
+    parameters {
+        booleanParam(name: 'RUN_BUILD_AND_ANALYZE', defaultValue: true, description: 'Ejecutar fases de compilación, tests unitarios y análisis de SonarQube.')
+        booleanParam(name: 'RUN_PACKAGE_AND_SCAN', defaultValue: true, description: 'Ejecutar fases para construir, subir y escanear imágenes Docker con Trivy.')
+        booleanParam(name: 'RUN_DEPLOY_DEV', defaultValue: true, description: 'Ejecutar despliegue en el entorno de DEV.')
+        booleanParam(name: 'RUN_PROMOTE_STAGING', defaultValue: true, description: 'Ejecutar promoción y despliegue en el entorno de STAGING (incluye tests E2E).')
+        booleanParam(name: 'RUN_PROMOTE_PROD', defaultValue: true, description: 'Ejecutar promoción y despliegue en el entorno de PRODUCCIÓN.')
+        string(name: 'EXISTING_BUILD_ID', defaultValue: '', description: 'Opcional: Si omites la fase de build/package, proporciona aquí el ID (ej: a1b2c3d) de una build anterior para desplegarla.')
+    }
+    
     environment {
         DOCKERHUB_USER = 'sebashm1'
         DOCKERHUB_REPO_PREFIX = 'ecommerce-microservice-backend-app' 
-        
-        // --- Variables de Estado (se actualizarán durante la promoción) ---
         K8S_NAMESPACE = "dev" 
         SPRING_ACTIVE_PROFILE_APP = "dev"
         TERRAFORM_ENV_DIR = "dev"
         RUN_E2E_TESTS = "false"
-
-        // --- Variables del Artefacto (se definen una vez y no cambian) ---
-        // CAMBIO DE SIGNIFICADO: Ya no representa un entorno, sino el ID único de la build.
         IMAGE_TAG_SUFFIX = "" 
-        // CAMBIO: Siempre se ejecutan todas las pruebas para un artefacto promocionable.
         MAVEN_PROFILES = "-Prun-its" 
-        
-        // NUEVO: Variable para pasar el mapa de imágenes a Terraform.
         TERRAFORM_SERVICE_IMAGES_VAR = ""
         SONAR_SERVER_NAME = "MiSonarQubeLocal"
         SONAR_URL = 'http://host.minikube.internal:9000' 
@@ -149,54 +154,47 @@ spec:
         // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
         // ==================================================================
         
-            stage('Initialize & Create Unique Build ID') {
+        stage('Initialize & Configure Build') { // MODIFICADO: Nombre más genérico
             steps {
                 script {
-                    // NUEVO: Solución para el error "dubious ownership".
-                    // Añadimos el directorio del workspace actual a la lista de directorios seguros de Git.
-                    // Usamos la variable de entorno ${WORKSPACE} de Jenkins para que sea genérico y no dependa del nombre del job.
                     sh "git config --global --add safe.directory ${WORKSPACE}"
-
-                    // Ahora, este comando se ejecutará sin problemas de permisos.
-                    def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    IMAGE_TAG_SUFFIX = gitCommit // Ej: a1b2c3d
+                    
+                    // MODIFICADO: Lógica para usar un build nuevo o uno existente
+                    if (params.RUN_BUILD_AND_ANALYZE || params.RUN_PACKAGE_AND_SCAN) {
+                        echo "Modo: NUEVA BUILD. Se generará un nuevo ID de artefacto."
+                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        IMAGE_TAG_SUFFIX = gitCommit
+                    } else {
+                        echo "Modo: RE-DESPLIEGUE. Se usará un ID de artefacto existente."
+                        if (params.EXISTING_BUILD_ID.trim().isEmpty()) {
+                            error("ERROR: Has omitido las fases de construcción, pero no has proporcionado un 'EXISTING_BUILD_ID'. El pipeline no sabe qué desplegar.")
+                        }
+                        IMAGE_TAG_SUFFIX = params.EXISTING_BUILD_ID.trim()
+                    }
                     
                     echo "===================================================================="
-                    echo "PIPELINE DE PROMOCIÓN INICIADO"
-                    echo "ID del artefacto a promover: ${IMAGE_TAG_SUFFIX}"
-                    echo "Se construirán las imágenes con este sufijo y se moverán a través de los entornos."
+                    echo "ID del artefacto para esta ejecución: ${IMAGE_TAG_SUFFIX}"
                     echo "===================================================================="
+                    
+                    // La comprobación de SonarQube se hace siempre para tener la variable lista
                     SONAR_IS_AVAILABLE = isSonarQubeAvailable()
                 }
             }
         }
         
         stage('Compile and Test All Services') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_BUILD_AND_ANALYZE } }
             steps {
                 script {
-                    def servicesToProcess = [
-                        'service-discovery', 'cloud-config',  'user-service',  'api-gateway', 
-                        'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'
-                    ]
-                    
-                    // AJUSTE TEMPORAL: Definimos el perfil Maven aquí para saltar los tests de integración.
-                    // Esto sobreescribe el valor por defecto definido en el bloque 'environment'.
-                    // De esta forma, no necesitas cambiar nada más en el pipeline.
+                    def servicesToProcess = serviceToBaseTagMap.keySet()
                     def MAVEN_PROFILES_FOR_BUILD = "-Pskip-its"
+                    echo "ADVERTENCIA: Se usarán los perfiles Maven '${MAVEN_PROFILES_FOR_BUILD}' para saltar los tests de integración."
                     
-                    echo "ADVERTENCIA: Se usarán los perfiles Maven '${MAVEN_PROFILES_FOR_BUILD}' para saltar los tests de integración debido a limitaciones de memoria."
-
                     for (svc in servicesToProcess) {
                         dir(svc) {
                             echo "Compilando y probando (solo unitarios) el servicio: ${svc}"
                             sh "chmod +x ./mvnw"
-
-                            // LÍNEA ORIGINAL COMENTADA: Esta línea ejecutaría todos los tests (unitarios y de integración).
-                            // sh "./mvnw clean verify ${MAVEN_PROFILES}"
-
-                            // LÍNEA NUEVA: Usamos la variable local para saltar los tests de integración.
-                            // Esto asegura que solo se ejecuten los tests unitarios (fase 'test' de Surefire)
-                            // y que Failsafe (fase 'integration-test') se omita gracias al perfil 'skip-its'.
                             sh "./mvnw clean verify ${MAVEN_PROFILES_FOR_BUILD}"
                         }
                     }
@@ -205,27 +203,19 @@ spec:
         }
 
         stage('SonarQube Static Analysis') {
+            // MODIFICADO: Combinamos la condición del parámetro con la de la disponibilidad de Sonar
             when {
-                expression { return SONAR_IS_AVAILABLE }
+                allOf {
+                    expression { return params.RUN_BUILD_AND_ANALYZE }
+                    expression { return SONAR_IS_AVAILABLE }
+                }
             }
             steps {
-                // withSonarQubeEnv inyecta las variables de entorno necesarias (URL y token)
-                // para que el scanner de Maven se conecte a SonarQube.
                 withSonarQubeEnv(SONAR_SERVER_NAME) {
                     script {
-                        def servicesToAnalyze = [
-                            'service-discovery', 'cloud-config',  'user-service',  'api-gateway', 
-                            'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'
-                        ]
-                        
-                        // Los análisis no se pueden paralelizar porque todos escriben en un mismo reporte
-                        // que waitForQualityGate leerá al final.
-                        for (svc in servicesToAnalyze) {
+                        for (svc in serviceToBaseTagMap.keySet()) {
                             dir(svc) {
                                 echo "Analizando con SonarQube el servicio: ${svc}"
-                                // El scanner de SonarQube para Maven se ejecuta con 'sonar:sonar'.
-                                // Es crucial definir un 'sonar.projectKey' único para cada microservicio.
-                                // El plugin de Jenkins se encarga de pasar las credenciales.
                                 sh """
                                    ./mvnw sonar:sonar \
                                      -Dsonar.projectKey=${DOCKERHUB_REPO_PREFIX}_${svc} \
@@ -239,19 +229,16 @@ spec:
             }
         }
         
-        // ==================================================================
-        // NUEVA ETAPA: QUALITY GATE - PUERTA DE CALIDAD
-        // ==================================================================
         stage('Check SonarQube Quality Gate') {
+            // MODIFICADO: Combinamos la condición del parámetro con la de la disponibilidad de Sonar
             when {
-                expression { return SONAR_IS_AVAILABLE }
+                allOf {
+                    expression { return params.RUN_BUILD_AND_ANALYZE }
+                    expression { return SONAR_IS_AVAILABLE }
+                }
             }
             steps {
                 script {
-                    // Este paso pausa el pipeline y espera a que SonarQube termine el análisis en segundo plano.
-                    // Si el "Quality Gate" falla (ej. muchos bugs, poca cobertura, etc.),
-                    // el pipeline se abortará con un error.
-                    // Esto asegura que solo el código de alta calidad proceda a ser empaquetado y desplegado.
                     timeout(time: 10, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
@@ -260,113 +247,118 @@ spec:
         }
 
         stage('Build, Push Docker Images & Prepare Terraform Vars') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_PACKAGE_AND_SCAN } }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
                     script {
                         sh "echo \$DOCKER_CRED_PSW | docker login -u \$DOCKER_CRED_USER --password-stdin"
-
-                        def serviceToBaseTagMap = [
-                            'service-discovery': 'discovery', 'cloud-config': 'config', 'api-gateway': 'gateway',
-                            'proxy-client': 'proxy', 'order-service': 'order', 'product-service': 'product',
-                            'user-service': 'users', 'shipping-service': 'shipping', 'payment-service': 'payment'
-                            //'favourite-service': 'favourite'
-                        ]
                         
-                        // Usamos un mapa local para construir las URLs de las imágenes. Lo movemos afuera para usarlo en el escaneo de Trivvy
                         builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
 
                         for (svcDirName in serviceToBaseTagMap.keySet()) {
                             def baseTag = serviceToBaseTagMap[svcDirName]
                             if (fileExists(svcDirName)) {
                                 dir(svcDirName) {
-                                    // La URL completa de la imagen con el ID único.
-                                    // Ej: sebashm1/repo:gateway-a1b2c3d
                                     def fullImageName = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${baseTag}-${IMAGE_TAG_SUFFIX}"
-                                    
                                     echo "Building and Pushing: ${fullImageName}"
                                     sh "docker build -t ${fullImageName} ."
                                     sh "docker push ${fullImageName}"
-                                    
                                     builtImagesMap[baseTag] = fullImageName
                                 }
                             }
                         }
                         
-                        // Convertimos el mapa Groovy al formato de variable -var para Terraform.
-                        // Resultado: -var='service_images={ "key1":"val1", "key2":"val2" }'
                         def mapAsString = builtImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
                         TERRAFORM_SERVICE_IMAGES_VAR = "-var='service_images={${mapAsString}}'"
-                        
                         echo "Variable de Terraform preparada: ${TERRAFORM_SERVICE_IMAGES_VAR}"
                     }
                 }
             }
         }
 
-        stage('Scan Container Images with Trivy (Advisory)') { // <-- Renombramos para claridad
+        stage('Scan Container Images with Trivy (Advisory)') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_PACKAGE_AND_SCAN } }
             steps {
                 script {
                     def serviceKeysToScan = builtImagesMap.keySet().findAll { it != 'zipkin' }
-
                     for (def serviceName in serviceKeysToScan) {
                         def fullImageName = builtImagesMap[serviceName]
                         def reportFile = "trivy-report-${serviceName}-${IMAGE_TAG_SUFFIX}.html"
-                        
-                        echo "===================================================================="
-                        echo "Escaneando imagen (modo aviso): ${fullImageName}"
-                        echo "===================================================================="
-                        
                         try {
-                            // ==========================================================
-                            // CORRECCIÓN:
-                            // 1. Eliminamos --exit-code 1 para que el pipeline NO FALLE.
-                            // 2. Simplificamos el manejo de errores ya que solo fallará si el comando es inválido.
-                            // ==========================================================
                             sh """
-                                trivy image \\
-                                    --format template \\
-                                    --template "@/root/trivy-templates/html.tpl" \\
-                                    -o ${reportFile} \\
-                                    --severity ${TRIVY_SEVERITY} \\
-                                    --no-progress \\
-                                    ${fullImageName}
+                                trivy image --format template --template "@/root/trivy-templates/html.tpl" \
+                                -o ${reportFile} --severity ${TRIVY_SEVERITY} --no-progress ${fullImageName}
                             """
-                            echo "✅ Escaneo de ${fullImageName} completado. El reporte ha sido generado."
-                        
                         } catch (Exception e) {
-                            // Este bloque ahora solo se activará si hay un error real,
-                            // como no encontrar la plantilla o la imagen.
                             echo "❌ Error al ejecutar Trivy para la imagen ${fullImageName}: ${e.getMessage()}"
                         } finally {
-                            // Siempre intentamos archivar el reporte que se haya podido generar.
                             archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
                         }
                     }
-                    
                     sh "docker logout"
                 }
             }
         }
         
+        // NUEVO: Fase para reconstruir variables si nos saltamos la construcción de imágenes
+        stage('Prepare Deployment Variables (if skipping build)') {
+            when {
+                // Ejecutar solo si NO estamos construyendo imágenes pero SÍ vamos a desplegar algo.
+                allOf {
+                    expression { return !params.RUN_PACKAGE_AND_SCAN }
+                    anyOf {
+                        expression { return params.RUN_DEPLOY_DEV }
+                        expression { return params.RUN_PROMOTE_STAGING }
+                        expression { return params.RUN_PROMOTE_PROD }
+                    }
+                }
+            }
+            steps {
+                script {
+                    echo "Reconstruyendo mapa de imágenes y variable de Terraform para el artefacto existente: ${IMAGE_TAG_SUFFIX}"
+                    
+                    builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                    
+                    for (svcDirName in serviceToBaseTagMap.keySet()) {
+                        def baseTag = serviceToBaseTagMap[svcDirName]
+                        def fullImageName = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${baseTag}-${IMAGE_TAG_SUFFIX}"
+                        builtImagesMap[baseTag] = fullImageName
+                    }
+                    
+                    def mapAsString = builtImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
+                    TERRAFORM_SERVICE_IMAGES_VAR = "-var='service_images={${mapAsString}}'"
+                    
+                    echo "Variable de Terraform reconstruida: ${TERRAFORM_SERVICE_IMAGES_VAR}"
+                }
+            }
+        }
         
         // ==================================================================
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================
 
         stage('Deploy to DEV') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
                 script {
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
-                    // Los valores por defecto de las variables de entorno ya apuntan a DEV.
-                    // K8S_NAMESPACE="dev", TERRAFORM_ENV_DIR="dev", etc.
                     deployWithTerraform()
                 }
             }
         }
 
         stage('Approval: Promote to STAGING?') {
+            // MODIFICADO: La aprobación solo tiene sentido si ambas fases (DEV y STAGING) están activas.
+            when { 
+                allOf {
+                    expression { return params.RUN_DEPLOY_DEV }
+                    expression { return params.RUN_PROMOTE_STAGING }
+                }
+            }
             steps {
-                // El pipeline abortará automáticamente después de 30 minutos si nadie interactúa.
                 timeout(time: 15, unit: 'MINUTES') {
                     input id: 'promoteToStagingGate', 
                           message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
@@ -376,27 +368,31 @@ spec:
         }
 
         stage('Deploy to STAGING & Run E2E Tests') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_PROMOTE_STAGING } }
             steps {
                 script {
                     echo "--> Promoviendo artefacto '${IMAGE_TAG_SUFFIX}' a STAGING..."
-                    
-                    // Actualizamos las variables de "estado" para que apunten a STAGING.
                     K8S_NAMESPACE = "stage"
                     SPRING_ACTIVE_PROFILE_APP = "stage"
                     TERRAFORM_ENV_DIR = "stage"
-                    RUN_E2E_TESTS = "true" // Activamos E2E para Staging
-                    
+                    RUN_E2E_TESTS = "true"
                     deployWithTerraform()
-                    
                     echo "Esperando 120 segundos para la estabilización de los servicios en STAGING..."
                     sleep 120
-                    
                     runEndToEndTests()
                 }
             }
         }
 
         stage('Approval: Promote to PRODUCTION?') {
+            // MODIFICADO: La aprobación solo tiene sentido si ambas fases (STAGING y PROD) están activas.
+            when { 
+                allOf {
+                    expression { return params.RUN_PROMOTE_STAGING }
+                    expression { return params.RUN_PROMOTE_PROD }
+                }
+            }
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                 input id: 'promoteToProdGate',
@@ -407,16 +403,15 @@ spec:
         }
 
         stage('Deploy to PRODUCTION') {
+            // NUEVO: Condición de ejecución
+            when { expression { return params.RUN_PROMOTE_PROD } }
             steps {
                 script {
                     echo "--> Promoviendo artefacto '${IMAGE_TAG_SUFFIX}' a PRODUCCIÓN..."
-                    
-                    // Actualizamos las variables de "estado" para que apunten a PROD.
                     K8S_NAMESPACE = "prod"
                     SPRING_ACTIVE_PROFILE_APP = "prod"
                     TERRAFORM_ENV_DIR = "prod"
                     RUN_E2E_TESTS = "false" 
-                    
                     deployWithTerraform()
                 }
             }

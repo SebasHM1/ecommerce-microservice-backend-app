@@ -61,6 +61,10 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && npm cache clean --force
 
+RUN echo "Downloading Trivy HTML template..." \
+    && mkdir -p /root/trivy-templates \
+    && wget -qO /root/trivy-templates/html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+    
 # Verificar instalaciones
 RUN echo "Java version:" && java -version \
     && echo "Maven version:" && mvn -version \
