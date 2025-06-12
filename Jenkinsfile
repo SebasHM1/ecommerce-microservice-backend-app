@@ -2,7 +2,7 @@
 // CONFIGURACIÓN GLOBAL Y MAPAS
 // ==================================================================
 def SONAR_IS_AVAILABLE = false
-def builtImagesMap = [:]
+//def builtImagesMap = [:]
 
 // NUEVO: Mapa de servicios movido aquí para ser accesible globalmente.
 // Esto es clave para poder reconstruir las variables si nos saltamos la fase de build.
@@ -254,7 +254,7 @@ spec:
                     script {
                         sh "echo \$DOCKER_CRED_PSW | docker login -u \$DOCKER_CRED_USER --password-stdin"
                         
-                        builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                        def builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
 
                         for (svcDirName in serviceToBaseTagMap.keySet()) {
                             def baseTag = serviceToBaseTagMap[svcDirName]
@@ -278,21 +278,31 @@ spec:
         }
 
         stage('Scan Container Images with Trivy (Advisory)') {
-            // NUEVO: Condición de ejecución
             when { expression { return params.RUN_PACKAGE_AND_SCAN } }
             steps {
                 script {
-                    def serviceKeysToScan = builtImagesMap.keySet().findAll { it != 'zipkin' }
-                    for (def serviceName in serviceKeysToScan) {
-                        def fullImageName = builtImagesMap[serviceName]
-                        def reportFile = "trivy-report-${serviceName}-${IMAGE_TAG_SUFFIX}.html"
+                    // CORRECCIÓN: Reconstruimos la lista de imágenes a escanear a partir del String,
+                    // que es 100% seguro y serializable.
+                    def imagesToScan = []
+                    // Extraemos las URLs de las imágenes del string usando una expresión regular.
+                    // Esto es más robusto que intentar parsear el JSON.
+                    TERRAFORM_SERVICE_IMAGES_VAR.eachMatch(/"([^"]+)":"([^"]+)"/) { match ->
+                        def key = match[1]
+                        def value = match[2]
+                        if (key != 'zipkin') {
+                            imagesToScan.add([serviceName: key, fullImageName: value])
+                        }
+                    }
+
+                    for (def imageInfo in imagesToScan) {
+                        def reportFile = "trivy-report-${imageInfo.serviceName}-${IMAGE_TAG_SUFFIX}.html"
                         try {
                             sh """
                                 trivy image --format template --template "@/root/trivy-templates/html.tpl" \
-                                -o ${reportFile} --severity ${TRIVY_SEVERITY} --no-progress ${fullImageName}
+                                -o ${reportFile} --severity ${TRIVY_SEVERITY} --no-progress ${imageInfo.fullImageName}
                             """
                         } catch (Exception e) {
-                            echo "❌ Error al ejecutar Trivy para la imagen ${fullImageName}: ${e.getMessage()}"
+                            echo "❌ Error al ejecutar Trivy para la imagen ${imageInfo.fullImageName}: ${e.getMessage()}"
                         } finally {
                             archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
                         }
@@ -319,7 +329,7 @@ spec:
                 script {
                     echo "Reconstruyendo mapa de imágenes y variable de Terraform para el artefacto existente: ${IMAGE_TAG_SUFFIX}"
                     
-                    builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                    def builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
                     
                     for (svcDirName in serviceToBaseTagMap.keySet()) {
                         def baseTag = serviceToBaseTagMap[svcDirName]
