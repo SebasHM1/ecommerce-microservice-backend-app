@@ -142,7 +142,7 @@ spec:
         RUN_E2E_TESTS = "false"
         IMAGE_TAG_SUFFIX = "" 
         MAVEN_PROFILES = "-Prun-its" 
-        TERRAFORM_SERVICE_IMAGES_VAR = ""
+        //TERRAFORM_SERVICE_IMAGES_VAR = ""
         SONAR_SERVER_NAME = "MiSonarQubeLocal"
         SONAR_URL = 'http://host.minikube.internal:9000' 
         TRIVY_SEVERITY = 'CRITICAL,HIGH'
@@ -246,32 +246,35 @@ spec:
             }
         }
 
-        stage('Build, Push Docker Images & Prepare Terraform Vars') {
-            // NUEVO: Condición de ejecución
+        stage('Build, Push & Stash Deployment Info') { 
             when { expression { return params.RUN_PACKAGE_AND_SCAN } }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-sebashm1', usernameVariable: 'DOCKER_CRED_USER', passwordVariable: 'DOCKER_CRED_PSW')]) {
                     script {
                         sh "echo \$DOCKER_CRED_PSW | docker login -u \$DOCKER_CRED_USER --password-stdin"
                         
-                        def builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
+                        def localBuiltImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
 
                         for (svcDirName in serviceToBaseTagMap.keySet()) {
                             def baseTag = serviceToBaseTagMap[svcDirName]
                             if (fileExists(svcDirName)) {
                                 dir(svcDirName) {
                                     def fullImageName = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${baseTag}-${IMAGE_TAG_SUFFIX}"
-                                    echo "Building and Pushing: ${fullImageName}"
                                     sh "docker build -t ${fullImageName} ."
                                     sh "docker push ${fullImageName}"
-                                    builtImagesMap[baseTag] = fullImageName
+                                    localBuiltImagesMap[baseTag] = fullImageName
                                 }
                             }
                         }
                         
-                        def mapAsString = builtImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
-                        TERRAFORM_SERVICE_IMAGES_VAR = "-var='service_images={${mapAsString}}'"
-                        echo "Variable de Terraform preparada: ${TERRAFORM_SERVICE_IMAGES_VAR}"
+                        def mapAsString = localBuiltImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
+                        def terraformVarString = "-var='service_images={${mapAsString}}'"
+                        
+                        // CORRECCIÓN: Escribimos la variable a un archivo y la guardamos en el stash
+                        writeFile file: 'deployment_vars.txt', text: terraformVarString
+                        stash name: 'deployment-info', includes: 'deployment_vars.txt'
+                        
+                        echo "Información de despliegue guardada en el stash."
                     }
                 }
             }
@@ -281,21 +284,20 @@ spec:
             when { expression { return params.RUN_PACKAGE_AND_SCAN } }
             steps {
                 script {
-                    // CORRECCIÓN: Reconstruimos la lista de imágenes a escanear a partir del String,
-                    // que es 100% seguro y serializable.
+                    // CORRECCIÓN: Recuperamos la información del stash
+                    unstash 'deployment-info'
+                    def terraformVarString = readFile('deployment_vars.txt').trim()
+                    
                     def imagesToScan = []
-                    // Extraemos las URLs de las imágenes del string usando una expresión regular.
-                    // Esto es más robusto que intentar parsear el JSON.
-                    TERRAFORM_SERVICE_IMAGES_VAR.eachMatch(/"([^"]+)":"([^"]+)"/) { match ->
-                        def key = match[1]
-                        def value = match[2]
-                        if (key != 'zipkin') {
-                            imagesToScan.add([serviceName: key, fullImageName: value])
+                    terraformVarString.eachMatch(/"([^"]+)":"([^"]+)"/) { match ->
+                        if (match[1] != 'zipkin') {
+                            imagesToScan.add([serviceName: match[1], fullImageName: match[2]])
                         }
                     }
 
                     for (def imageInfo in imagesToScan) {
                         def reportFile = "trivy-report-${imageInfo.serviceName}-${IMAGE_TAG_SUFFIX}.html"
+                        // ... el resto del try/catch/finally no cambia ...
                         try {
                             sh """
                                 trivy image --format template --template "@/root/trivy-templates/html.tpl" \
@@ -312,35 +314,31 @@ spec:
             }
         }
         
-        // NUEVO: Fase para reconstruir variables si nos saltamos la construcción de imágenes
         stage('Prepare Deployment Variables (if skipping build)') {
             when {
-                // Ejecutar solo si NO estamos construyendo imágenes pero SÍ vamos a desplegar algo.
                 allOf {
                     expression { return !params.RUN_PACKAGE_AND_SCAN }
-                    anyOf {
-                        expression { return params.RUN_DEPLOY_DEV }
-                        expression { return params.RUN_PROMOTE_STAGING }
-                        expression { return params.RUN_PROMOTE_PROD }
-                    }
+                    anyOf { /* ... */ }
                 }
             }
             steps {
                 script {
-                    echo "Reconstruyendo mapa de imágenes y variable de Terraform para el artefacto existente: ${IMAGE_TAG_SUFFIX}"
+                    echo "Reconstruyendo información de despliegue para el artefacto existente: ${IMAGE_TAG_SUFFIX}"
                     
-                    def builtImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
-                    
+                    def localBuiltImagesMap = [ "zipkin": "openzipkin/zipkin:latest" ]
                     for (svcDirName in serviceToBaseTagMap.keySet()) {
                         def baseTag = serviceToBaseTagMap[svcDirName]
                         def fullImageName = "${DOCKERHUB_USER}/${DOCKERHUB_REPO_PREFIX}:${baseTag}-${IMAGE_TAG_SUFFIX}"
-                        builtImagesMap[baseTag] = fullImageName
+                        localBuiltImagesMap[baseTag] = fullImageName
                     }
+                    def mapAsString = localBuiltImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
+                    def terraformVarString = "-var='service_images={${mapAsString}}'"
                     
-                    def mapAsString = builtImagesMap.collect { k, v -> "\"${k}\":\"${v}\"" }.join(',')
-                    TERRAFORM_SERVICE_IMAGES_VAR = "-var='service_images={${mapAsString}}'"
+                    // CORRECCIÓN: También guardamos en el stash en este caso
+                    writeFile file: 'deployment_vars.txt', text: terraformVarString
+                    stash name: 'deployment-info', includes: 'deployment_vars.txt'
                     
-                    echo "Variable de Terraform reconstruida: ${TERRAFORM_SERVICE_IMAGES_VAR}"
+                    echo "Información de despliegue reconstruida y guardada en el stash."
                 }
             }
         }
@@ -350,15 +348,20 @@ spec:
         // ==================================================================
 
         stage('Deploy to DEV') {
-            // NUEVO: Condición de ejecución
             when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
                 script {
+                    // CORRECCIÓN: Recuperamos la información del stash antes de usarla
+                    unstash 'deployment-info'
+                    // Hacemos la variable local para la función deployWithTerraform
+                    env.TERRAFORM_SERVICE_IMAGES_VAR = readFile('deployment_vars.txt').trim()
+                    
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
                     deployWithTerraform()
                 }
             }
         }
+
 
         stage('Approval: Promote to STAGING?') {
             // MODIFICADO: La aprobación solo tiene sentido si ambas fases (DEV y STAGING) están activas.
@@ -378,16 +381,24 @@ spec:
         }
 
         stage('Deploy to STAGING & Run E2E Tests') {
-            // NUEVO: Condición de ejecución
             when { expression { return params.RUN_PROMOTE_STAGING } }
             steps {
                 script {
+                    // ==========================================================
+                    // CORRECCIÓN: Recuperar del stash antes de desplegar
+                    // ==========================================================
+                    unstash 'deployment-info'
+                    env.TERRAFORM_SERVICE_IMAGES_VAR = readFile('deployment_vars.txt').trim()
+                    
                     echo "--> Promoviendo artefacto '${IMAGE_TAG_SUFFIX}' a STAGING..."
                     K8S_NAMESPACE = "stage"
                     SPRING_ACTIVE_PROFILE_APP = "stage"
                     TERRAFORM_ENV_DIR = "stage"
                     RUN_E2E_TESTS = "true"
+
+                    // Ahora deployWithTerraform() usará la variable de entorno correcta
                     deployWithTerraform()
+                    
                     echo "Esperando 120 segundos para la estabilización de los servicios en STAGING..."
                     sleep 120
                     runEndToEndTests()
@@ -396,7 +407,6 @@ spec:
         }
 
         stage('Approval: Promote to PRODUCTION?') {
-            // MODIFICADO: La aprobación solo tiene sentido si ambas fases (STAGING y PROD) están activas.
             when { 
                 allOf {
                     expression { return params.RUN_PROMOTE_STAGING }
@@ -404,24 +414,32 @@ spec:
                 }
             }
             steps {
+                // Esta etapa de 'input' ahora funcionará correctamente porque el
+                // estado del pipeline es "limpio" y serializable.
                 timeout(time: 15, unit: 'MINUTES') {
-                input id: 'promoteToProdGate',
-                      message: "¡PELIGRO! El artefacto ID '${IMAGE_TAG_SUFFIX}' fue validado en STAGING. ¿Aprobar despliegue a PRODUCCIÓN?", 
-                      submitter: 'admin,cto' 
+                    input id: 'promoteToProdGate',
+                          message: "¡PELIGRO! El artefacto ID '${IMAGE_TAG_SUFFIX}' fue validado en STAGING. ¿Aprobar despliegue a PRODUCCIÓN?", 
+                          submitter: 'admin,cto' 
                 }
             }
         }
 
         stage('Deploy to PRODUCTION') {
-            // NUEVO: Condición de ejecución
             when { expression { return params.RUN_PROMOTE_PROD } }
             steps {
                 script {
+                    // ==========================================================
+                    // CORRECIÓN: Recuperar del stash antes de desplegar a PROD
+                    // ==========================================================
+                    unstash 'deployment-info'
+                    env.TERRAFORM_SERVICE_IMAGES_VAR = readFile('deployment_vars.txt').trim()
+                    
                     echo "--> Promoviendo artefacto '${IMAGE_TAG_SUFFIX}' a PRODUCCIÓN..."
                     K8S_NAMESPACE = "prod"
                     SPRING_ACTIVE_PROFILE_APP = "prod"
                     TERRAFORM_ENV_DIR = "prod"
                     RUN_E2E_TESTS = "false" 
+                    
                     deployWithTerraform()
                 }
             }
