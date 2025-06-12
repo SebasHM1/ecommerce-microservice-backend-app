@@ -55,6 +55,8 @@ spec:
         
         // NUEVO: Variable para pasar el mapa de imágenes a Terraform.
         TERRAFORM_SERVICE_IMAGES_VAR = ""
+        SONAR_SERVER_NAME = "MiSonarQubeLocal"
+        SONAR_URL = 'http://sonarqube:9000' 
     }
 
     stages {
@@ -112,6 +114,61 @@ spec:
                             // y que Failsafe (fase 'integration-test') se omita gracias al perfil 'skip-its'.
                             sh "./mvnw clean verify ${MAVEN_PROFILES_FOR_BUILD}"
                         }
+                    }
+                }
+            }
+        }
+
+        stage('SonarQube Static Analysis') {
+            when {
+                expression { return script.SONAR_IS_AVAILABLE }
+            }
+            steps {
+                // withSonarQubeEnv inyecta las variables de entorno necesarias (URL y token)
+                // para que el scanner de Maven se conecte a SonarQube.
+                withSonarQubeEnv(SONAR_SERVER_NAME) {
+                    script {
+                        def servicesToAnalyze = [
+                            'service-discovery', 'cloud-config',  'user-service',  'api-gateway', 
+                            'order-service', 'product-service', 'shipping-service', 'payment-service', 'proxy-client'
+                        ]
+                        
+                        // Los análisis no se pueden paralelizar porque todos escriben en un mismo reporte
+                        // que waitForQualityGate leerá al final.
+                        for (svc in servicesToAnalyze) {
+                            dir(svc) {
+                                echo "Analizando con SonarQube el servicio: ${svc}"
+                                // El scanner de SonarQube para Maven se ejecuta con 'sonar:sonar'.
+                                // Es crucial definir un 'sonar.projectKey' único para cada microservicio.
+                                // El plugin de Jenkins se encarga de pasar las credenciales.
+                                sh """
+                                   ./mvnw sonar:sonar \
+                                     -Dsonar.projectKey=${DOCKERHUB_REPO_PREFIX}_${svc} \
+                                     -Dsonar.projectName="[Microservice] ${svc}" \
+                                     -Dsonar.java.binaries=target/classes
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ==================================================================
+        // NUEVA ETAPA: QUALITY GATE - PUERTA DE CALIDAD
+        // ==================================================================
+        stage('Check SonarQube Quality Gate') {
+            when {
+                expression { return script.SONAR_IS_AVAILABLE }
+            }
+            steps {
+                script {
+                    // Este paso pausa el pipeline y espera a que SonarQube termine el análisis en segundo plano.
+                    // Si el "Quality Gate" falla (ej. muchos bugs, poca cobertura, etc.),
+                    // el pipeline se abortará con un error.
+                    // Esto asegura que solo el código de alta calidad proceda a ser empaquetado y desplegado.
+                    timeout(time: 10, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
                     }
                 }
             }
@@ -248,6 +305,27 @@ spec:
 // ==================================================================
 // FUNCIONES AUXILIARES REUTILIZABLES
 // ==================================================================
+
+/**
+ * Comprueba si el servidor SonarQube está disponible y responde.
+ * Utiliza un timeout corto para no retrasar el pipeline si el servidor está caído.
+ * @return true si SonarQube está activo, false en caso contrario.
+ */
+def isSonarQubeAvailable() {
+    try {
+        // Usamos curl con un timeout para una comprobación rápida.
+        // La API /api/system/status es ideal para esto. El flag --fail hace que curl
+        // devuelva un código de error si la respuesta HTTP no es 2xx, lo que activa el catch.
+        sh(script: "curl --connect-timeout 5 --silent --fail ${env.SONAR_URL}/api/system/status > /dev/null", returnStatus: false)
+        echo "✅ SonarQube está disponible en ${env.SONAR_URL}. Se procederá con el análisis."
+        return true
+    } catch (Exception e) {
+        // Si el curl falla (timeout, no se puede resolver el host, error HTTP), atrapamos la excepción.
+        echo "⚠️ ADVERTENCIA: No se pudo contactar con el servidor SonarQube en ${env.SONAR_URL}."
+        echo "Se omitirán las etapas de análisis de código y quality gate."
+        return false
+    }
+}
 
 // Esta función ahora es agnóstica al entorno. Simplemente lee las variables
 // de entorno que están activas en el momento de su ejecución.
