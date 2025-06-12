@@ -306,48 +306,68 @@ spec:
         stage('Scan Container Images with Trivy') {
             steps {
                 script {
-                    // El mapa de imágenes se creó en la etapa anterior.
-                    // Iteramos sobre las imágenes que NOSOTROS construimos (ignorando 'zipkin').
-                    def imagesToScan = builtImagesMap.findAll { key, value -> key != 'zipkin' }
+                    // ==========================================================
+                    // CORRECCIÓN: Iterar sobre el mapa de forma segura para evitar
+                    // el error de NotSerializableException.
+                    // ==========================================================
                     
-                    for (imageEntry in imagesToScan) {
-                        def serviceName = imageEntry.key
-                        def fullImageName = imageEntry.value
+                    // 1. Obtenemos las claves del mapa (una lista de Strings, que es serializable).
+                    //    Filtramos la clave 'zipkin' en este paso.
+                    def serviceKeysToScan = builtImagesMap.keySet().findAll { it != 'zipkin' }
+
+                    // 2. Iteramos sobre la lista de claves.
+                    for (def serviceName in serviceKeysToScan) {
+                        // 3. Obtenemos el valor (la URL de la imagen) dentro del bucle.
+                        def fullImageName = builtImagesMap[serviceName]
                         def reportFile = "trivy-report-${serviceName}-${IMAGE_TAG_SUFFIX}.html"
                         
                         echo "===================================================================="
                         echo "Escaneando imagen: ${fullImageName}"
-                        echo "Severidades que causarán fallo: ${TRIVY_SEVERITY}"
                         echo "===================================================================="
                         
                         try {
-                            // Usamos un bloque try/catch para asegurarnos de archivar el reporte incluso si el escaneo falla.
-                            sh """
-                                trivy image \\
-                                    --format template \\
-                                    --template "@trivy-templates/html.tpl" \\
-                                    -o ${reportFile} \\
-                                    --exit-code 1 \\
-                                    --severity ${TRIVY_SEVERITY} \\
-                                    --no-progress \\
-                                    ${fullImageName}
-                            """
-                            echo "Escaneo de ${fullImageName} completado. No se encontraron vulnerabilidades críticas o altas."
+                            // IMPORTANTE: Añadimos '|| true' al final del comando. Esto previene que
+                            // el shell aborte el script si Trivy falla, permitiendo que nuestro
+                            // código Groovy maneje el error y el reporte.
+                            def trivyExitCode = sh(
+                                script: """
+                                    trivy image \\
+                                        --format template \\
+                                        --template "@/root/trivy-templates/html.tpl" \\
+                                        -o ${reportFile} \\
+                                        --exit-code 1 \\
+                                        --severity ${TRIVY_SEVERITY} \\
+                                        --no-progress \\
+                                        ${fullImageName}
+                                """,
+                                returnStatus: true
+                            )
+
+                            if (trivyExitCode != 0) {
+                                echo "❌ ¡ALERTA DE SEGURIDAD! Trivy encontró vulnerabilidades de severidad ${TRIVY_SEVERITY} en ${fullImageName}."
+                                // El reporte ya se generó, ahora archivamos y fallamos.
+                                archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
+                                error("Pipeline abortado debido a vulnerabilidades críticas encontradas por Trivy. Revisa el reporte archivado.")
+                            } else {
+                                echo "✅ Escaneo de ${fullImageName} completado sin vulnerabilidades críticas."
+                            }
+
                         } catch (Exception e) {
-                            echo "¡ALERTA DE SEGURIDAD! Trivy encontró vulnerabilidades de severidad ${TRIVY_SEVERITY} en ${fullImageName}."
-                            // Abortamos el pipeline inmediatamente. No se debe desplegar una imagen vulnerable.
-                            error("Pipeline abortado debido a vulnerabilidades críticas encontradas por Trivy. Revisa el reporte archivado.")
+                            // Este catch ahora es para errores inesperados del propio comando, no del exit code.
+                            echo "Ocurrió un error inesperado al ejecutar Trivy: ${e.getMessage()}"
+                            error("Fallo en la ejecución de Trivy.")
                         } finally {
-                            // Archivamos el reporte HTML para poder revisarlo.
+                            // Archivamos el reporte. Si el comando tuvo éxito, el archivo estará ahí.
+                            // Si el comando falló por vulnerabilidades, también estará ahí.
                             archiveArtifacts artifacts: reportFile, allowEmptyArchive: true
                         }
                     }
                     
-                    // Hacemos el logout de Docker Hub al final, después de todos los escaneos.
                     sh "docker logout"
                 }
             }
         }
+        
         
         // ==================================================================
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
