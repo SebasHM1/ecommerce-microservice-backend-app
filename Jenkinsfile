@@ -1,5 +1,86 @@
-// Jenkinsfile adaptado para Promoción Controlada (Build Once, Deploy Many)
-// Mantiene la estructura y nombres de variables originales.
+def SONAR_IS_AVAILABLE = false
+
+// ==================================================================
+// FUNCIONES AUXILIARES REUTILIZABLES
+// ==================================================================
+
+/**
+ * Comprueba si el servidor SonarQube está disponible.
+ * @return true si SonarQube está activo, false en caso contrario.
+ */
+def isSonarQubeAvailable() {
+    try {
+        sh(script: "curl --connect-timeout 5 --silent --fail ${env.SONAR_URL}/api/system/status > /dev/null", returnStatus: false)
+        echo "✅ SonarQube está disponible en ${env.SONAR_URL}. Se procederá con el análisis."
+        return true
+    } catch (Exception e) {
+        echo "⚠️ ADVERTENCIA: No se pudo contactar con el servidor SonarQube en ${env.SONAR_URL}."
+        echo "Se omitirán las etapas de análisis de código."
+        return false
+    }
+}
+
+// Esta función ahora es agnóstica al entorno. Simplemente lee las variables
+// de entorno que están activas en el momento de su ejecución.
+void deployWithTerraform() {
+    dir("terraform/${TERRAFORM_ENV_DIR}") {
+        script {
+            echo "===================================================================="
+            echo "Running Terraform for environment: ${TERRAFORM_ENV_DIR}"
+            echo "Target K8s Namespace: ${K8S_NAMESPACE}"
+            echo "Spring Profile: ${SPRING_ACTIVE_PROFILE_APP}"
+            echo "===================================================================="
+            
+            sh 'terraform init -input=false'
+
+            echo "--- Terraform Plan ---"
+            // Se usa la variable TERRAFORM_SERVICE_IMAGES_VAR que ya contiene el mapa formateado.
+            // Esto simplifica el comando y evita problemas de escapado de comillas.
+            sh """
+            terraform plan -out=tfplan -input=false \\
+                ${TERRAFORM_SERVICE_IMAGES_VAR} \\
+                -var="k8s_namespace=${K8S_NAMESPACE}" \\
+                -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
+            """
+
+            echo "--- Terraform Apply ---"
+            sh 'terraform apply -auto-approve -input=false tfplan'
+        }
+    }
+}
+
+// Esta función también es agnóstica y se guía por las variables de entorno activas.
+void runEndToEndTests() {
+    if (env.RUN_E2E_TESTS == "true") {
+        dir('postman-collections') {
+            def collectionsToRun = [
+                "E2E Test 1 - Users.postman_collection.json", "E2E Test 2 - Product.postman_collection.json",
+                "E2E Test 3 - Order and Payment.postman_collection.json", "E2E Test 4 - Shipping.postman_collection.json",
+                "E2E Test 5 - Delete Entities.postman_collection.json"
+            ]
+            def environmentFile = "JenkinsGlobalE2E.postman_environment.json" 
+            def apiGatewayInternalUrl = "http://api-gateway.${K8S_NAMESPACE}.svc.cluster.local:8080"
+            
+            for (collectionFile in collectionsToRun) {
+                def reportFile = "reporte-${collectionFile.tokenize('.')[0]}-${K8S_NAMESPACE}-${IMAGE_TAG_SUFFIX}.html"
+                try {
+                    sh """
+                        newman run "${collectionFile}" -e "${environmentFile}" \\
+                        --global-var "API_GATEWAY_URL=${apiGatewayInternalUrl}" \\
+                        -r cli,htmlextra --reporter-htmlextra-export "${reportFile}"
+                    """
+                } catch (Exception e) {
+                    echo "Error en la colección E2E ${collectionFile}: ${e.getMessage()}"
+                    currentBuild.result = 'UNSTABLE'
+                } finally {
+                    archiveArtifacts artifacts: reportFile, allowEmptyArchive: true, fingerprint: true
+                }
+            }
+        }
+    } else {
+        echo "Skipping E2E tests for environment: ${K8S_NAMESPACE}."
+    }
+}
 
 pipeline {
     agent {
@@ -82,6 +163,7 @@ spec:
                     echo "ID del artefacto a promover: ${IMAGE_TAG_SUFFIX}"
                     echo "Se construirán las imágenes con este sufijo y se moverán a través de los entornos."
                     echo "===================================================================="
+                    SONAR_IS_AVAILABLE = isSonarQubeAvailable()
                 }
             }
         }
@@ -121,7 +203,7 @@ spec:
 
         stage('SonarQube Static Analysis') {
             when {
-                expression { return script.SONAR_IS_AVAILABLE }
+                expression { return SONAR_IS_AVAILABLE }
             }
             steps {
                 // withSonarQubeEnv inyecta las variables de entorno necesarias (URL y token)
@@ -159,7 +241,7 @@ spec:
         // ==================================================================
         stage('Check SonarQube Quality Gate') {
             when {
-                expression { return script.SONAR_IS_AVAILABLE }
+                expression { return SONAR_IS_AVAILABLE }
             }
             steps {
                 script {
@@ -298,93 +380,5 @@ spec:
             echo "Pipeline finished."
             // deleteDir()
         }
-    }
-}
-
-
-// ==================================================================
-// FUNCIONES AUXILIARES REUTILIZABLES
-// ==================================================================
-
-/**
- * Comprueba si el servidor SonarQube está disponible y responde.
- * Utiliza un timeout corto para no retrasar el pipeline si el servidor está caído.
- * @return true si SonarQube está activo, false en caso contrario.
- */
-def isSonarQubeAvailable() {
-    try {
-        // Usamos curl con un timeout para una comprobación rápida.
-        // La API /api/system/status es ideal para esto. El flag --fail hace que curl
-        // devuelva un código de error si la respuesta HTTP no es 2xx, lo que activa el catch.
-        sh(script: "curl --connect-timeout 5 --silent --fail ${env.SONAR_URL}/api/system/status > /dev/null", returnStatus: false)
-        echo "✅ SonarQube está disponible en ${env.SONAR_URL}. Se procederá con el análisis."
-        return true
-    } catch (Exception e) {
-        // Si el curl falla (timeout, no se puede resolver el host, error HTTP), atrapamos la excepción.
-        echo "⚠️ ADVERTENCIA: No se pudo contactar con el servidor SonarQube en ${env.SONAR_URL}."
-        echo "Se omitirán las etapas de análisis de código y quality gate."
-        return false
-    }
-}
-
-// Esta función ahora es agnóstica al entorno. Simplemente lee las variables
-// de entorno que están activas en el momento de su ejecución.
-void deployWithTerraform() {
-    dir("terraform/${TERRAFORM_ENV_DIR}") {
-        script {
-            echo "===================================================================="
-            echo "Running Terraform for environment: ${TERRAFORM_ENV_DIR}"
-            echo "Target K8s Namespace: ${K8S_NAMESPACE}"
-            echo "Spring Profile: ${SPRING_ACTIVE_PROFILE_APP}"
-            echo "===================================================================="
-            
-            sh 'terraform init -input=false'
-
-            echo "--- Terraform Plan ---"
-            // Se usa la variable TERRAFORM_SERVICE_IMAGES_VAR que ya contiene el mapa formateado.
-            // Esto simplifica el comando y evita problemas de escapado de comillas.
-            sh """
-            terraform plan -out=tfplan -input=false \\
-                ${TERRAFORM_SERVICE_IMAGES_VAR} \\
-                -var="k8s_namespace=${K8S_NAMESPACE}" \\
-                -var="spring_profile=${SPRING_ACTIVE_PROFILE_APP}"
-            """
-
-            echo "--- Terraform Apply ---"
-            sh 'terraform apply -auto-approve -input=false tfplan'
-        }
-    }
-}
-
-// Esta función también es agnóstica y se guía por las variables de entorno activas.
-void runEndToEndTests() {
-    if (env.RUN_E2E_TESTS == "true") {
-        dir('postman-collections') {
-            def collectionsToRun = [
-                "E2E Test 1 - Users.postman_collection.json", "E2E Test 2 - Product.postman_collection.json",
-                "E2E Test 3 - Order and Payment.postman_collection.json", "E2E Test 4 - Shipping.postman_collection.json",
-                "E2E Test 5 - Delete Entities.postman_collection.json"
-            ]
-            def environmentFile = "JenkinsGlobalE2E.postman_environment.json" 
-            def apiGatewayInternalUrl = "http://api-gateway.${K8S_NAMESPACE}.svc.cluster.local:8080"
-            
-            for (collectionFile in collectionsToRun) {
-                def reportFile = "reporte-${collectionFile.tokenize('.')[0]}-${K8S_NAMESPACE}-${IMAGE_TAG_SUFFIX}.html"
-                try {
-                    sh """
-                        newman run "${collectionFile}" -e "${environmentFile}" \\
-                        --global-var "API_GATEWAY_URL=${apiGatewayInternalUrl}" \\
-                        -r cli,htmlextra --reporter-htmlextra-export "${reportFile}"
-                    """
-                } catch (Exception e) {
-                    echo "Error en la colección E2E ${collectionFile}: ${e.getMessage()}"
-                    currentBuild.result = 'UNSTABLE'
-                } finally {
-                    archiveArtifacts artifacts: reportFile, allowEmptyArchive: true, fingerprint: true
-                }
-            }
-        }
-    } else {
-        echo "Skipping E2E tests for environment: ${K8S_NAMESPACE}."
     }
 }
