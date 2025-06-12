@@ -137,7 +137,7 @@ spec:
         // NUEVO: Variable para pasar el mapa de imágenes a Terraform.
         TERRAFORM_SERVICE_IMAGES_VAR = ""
         SONAR_SERVER_NAME = "MiSonarQubeLocal"
-        SONAR_URL = 'http://sonarqube:9000' 
+        SONAR_URL = 'http://host.minikube.internal:9000' 
     }
 
     stages {
