@@ -15,7 +15,6 @@ resource "kubernetes_namespace" "env_namespace" {
   }
 }
 
-# ... (provider y namespace) ...
 
 # ==============================================================================
 # DESPLIEGUE DE LA BASE DE DATOS PARA ESTE ENTORNO
