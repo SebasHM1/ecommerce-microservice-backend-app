@@ -378,11 +378,9 @@ spec:
                 }
             }
             steps {
-                timeout(time: 15, unit: 'MINUTES') {
-                    input id: 'promoteToStagingGate', 
+                input id: 'promoteToStagingGate', 
                           message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
                           ok: 'Aprobar'
-                }
             }
         }
 
