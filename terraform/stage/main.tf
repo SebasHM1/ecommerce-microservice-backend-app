@@ -95,27 +95,58 @@ resource "kubernetes_service" "mysql" {
 # ==============================================================================
 
 resource "kubernetes_deployment" "zipkin" {
+  # Asegura que el servicio de MySQL exista antes de intentar crear este despliegue.
   depends_on = [kubernetes_service.mysql]
   
-  metadata { /* ... */ }
+  # --- METADATA DEL DEPLOYMENT ---
+  # Define el nombre, namespace y etiquetas del propio objeto Deployment.
+  metadata {
+    name      = "zipkin"
+    namespace = var.k8s_namespace
+    labels = {
+      app = "zipkin"
+    }
+  }
+  
+  # --- ESPECIFICACIÓN DEL DEPLOYMENT ---
   spec {
+    # Define cuántas réplicas (pods) de Zipkin quieres tener.
     replicas = 1
-    selector { /* ... */ }
+    
+    # --- SELECTOR: El pegamento entre el Deployment y los Pods ---
+    # Le dice al Deployment: "Gestiona todos los pods que tengan la etiqueta 'app: zipkin'".
+    selector {
+      match_labels = {
+        app = "zipkin"
+      }
+    }
+    
+    # --- PLANTILLA DEL POD (POD TEMPLATE) ---
+    # Esta es la receta para crear cada pod de Zipkin.
     template {
-      metadata { /* ... */ }
+      # --- METADATA DEL POD ---
+      # Define las etiquetas que se aplicarán a cada pod creado.
+      # ¡Debe coincidir con el 'selector' de arriba!
+      metadata {
+        labels = {
+          app = "zipkin"
+        }
+      }
+      
+      # --- ESPECIFICACIÓN DEL POD ---
       spec {
         container {
           name  = "zipkin"
           image = var.service_images["zipkin"]
           port { container_port = 9411 }
 
+          # Variables de entorno para conectar Zipkin a MySQL
           env {
             name  = "STORAGE_TYPE"
             value = "mysql"
           }
           env {
             name  = "MYSQL_JDBC_URL"
-            // Usando la base de datos principal para simplificar
             value = "jdbc:mysql://mysql:3306/${kubernetes_secret.mysql_secrets.data["mysql-database"]}?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
           }
           env {
@@ -125,7 +156,6 @@ resource "kubernetes_deployment" "zipkin" {
           env {
             name  = "MYSQL_PASS"
             value_from {
-              // CORRECCIÓN: 'secret_key_ref' está en su propia línea
               secret_key_ref {
                 name = kubernetes_secret.mysql_secrets.metadata[0].name
                 key  = "mysql-root-password"
