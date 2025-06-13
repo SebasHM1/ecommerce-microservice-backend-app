@@ -15,12 +15,84 @@ resource "kubernetes_namespace" "env_namespace" {
   }
 }
 
+# ... (provider y namespace) ...
+
+# ==============================================================================
+# DESPLIEGUE DE LA BASE DE DATOS PARA ESTE ENTORNO
+# ==============================================================================
+resource "kubernetes_secret" "mysql_secrets" {
+  depends_on = [kubernetes_namespace.env_namespace]
+  metadata {
+    name      = "mysql-secret"
+    namespace = var.k8s_namespace
+  }
+  data = {
+    // Para stage, podrías tener una contraseña diferente
+    "mysql-root-password" = "my-stage-secret-password" 
+    "mysql-database"      = "ecommerce_stage_db"
+  }
+}
+
+resource "kubernetes_deployment" "mysql" {
+  depends_on = [kubernetes_secret.mysql_secrets]
+  metadata {
+    name      = "mysql" // El nombre del servicio será 'mysql'
+    namespace = var.k8s_namespace
+    labels    = { app = "mysql" }
+  }
+  spec {
+    replicas = 1
+    selector { match_labels = { app = "mysql" } }
+    template {
+      metadata { labels = { app = "mysql" } }
+      spec {
+        container {
+          name  = "mysql"
+          image = "mysql:8.0"
+          port { container_port = 3306 }
+          env {
+            name  = "MYSQL_ROOT_PASSWORD"
+            value_from { secret_key_ref {
+              name = kubernetes_secret.mysql_secrets.metadata[0].name
+              key  = "mysql-root-password"
+            }}
+          }
+          env {
+            name = "MYSQL_DATABASE"
+            value_from { secret_key_ref {
+              name = kubernetes_secret.mysql_secrets.metadata[0].name
+              key = "mysql-database"
+            }}
+          }
+        }
+      }
+    }
+  }
+}
+
+resource "kubernetes_service" "mysql" {
+  depends_on = [kubernetes_deployment.mysql]
+  metadata {
+    name      = "mysql" // El nombre del servicio que usarán otros pods
+    namespace = var.k8s_namespace
+  }
+  spec {
+    selector = { app = "mysql" }
+    port {
+      port        = 3306
+      target_port = 3306
+    }
+    type = "ClusterIP"
+  }
+}
+
+
 # ==============================================================================
 # NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
 # ==============================================================================
 resource "kubernetes_deployment" "zipkin" {
   # Dependencia explícita en la creación del namespace.
-  depends_on = [kubernetes_namespace.env_namespace]
+  depends_on = [kubernetes_service.mysql]
   
   metadata {
     name      = "zipkin"
