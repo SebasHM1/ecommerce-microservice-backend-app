@@ -382,7 +382,7 @@ spec:
                     input id: 'promoteToStagingGate', 
                           message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
                           ok: 'Aprobar',
-                          ok: 'Rechazar'
+                          ok-no: 'Rechazar'
                 }
             }
         }
