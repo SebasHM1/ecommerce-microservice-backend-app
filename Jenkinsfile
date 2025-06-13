@@ -393,7 +393,7 @@ spec:
                     expression { return currentBuild.currentResult == 'SUCCESS' }
                     expression { return params.RUN_PROMOTE_STAGING }
                 }
-
+            }
             steps {
                 script {
                     // ==========================================================
