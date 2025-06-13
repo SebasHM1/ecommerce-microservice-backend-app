@@ -20,23 +20,10 @@ resource "kubernetes_namespace" "env_namespace" {
 # ==============================================================================
 # DESPLIEGUE DE LA BASE DE DATOS PARA ESTE ENTORNO
 # ==============================================================================
-resource "kubernetes_secret" "mysql_secrets" {
-  depends_on = [kubernetes_namespace.env_namespace]
-  metadata {
-    name      = "mysql-secret"
-    namespace = var.k8s_namespace
-  }
-  data = {
-    // Para stage, podrías tener una contraseña diferente
-    "mysql-root-password" = "my-stage-secret-password" 
-    "mysql-database"      = "ecommerce_stage_db"
-  }
-}
-
 resource "kubernetes_deployment" "mysql" {
   depends_on = [kubernetes_secret.mysql_secrets]
   metadata {
-    name      = "mysql" // El nombre del servicio será 'mysql'
+    name      = "mysql"
     namespace = var.k8s_namespace
     labels    = { app = "mysql" }
   }
@@ -50,19 +37,29 @@ resource "kubernetes_deployment" "mysql" {
           name  = "mysql"
           image = "mysql:8.0"
           port { container_port = 3306 }
+          
+          # ==========================================================
+          # SINTAXIS CORREGIDA
+          # ==========================================================
           env {
             name  = "MYSQL_ROOT_PASSWORD"
-            value_from { secret_key_ref {
-              name = kubernetes_secret.mysql_secrets.metadata[0].name
-              key  = "mysql-root-password"
-            }}
+            value_from {
+              // CORRECCIÓN: 'secret_key_ref' está en su propia línea
+              secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key  = "mysql-root-password"
+              }
+            }
           }
           env {
             name = "MYSQL_DATABASE"
-            value_from { secret_key_ref {
-              name = kubernetes_secret.mysql_secrets.metadata[0].name
-              key = "mysql-database"
-            }}
+            value_from {
+               // CORRECCIÓN: 'secret_key_ref' está en su propia línea
+               secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key = "mysql-database"
+               }
+            }
           }
         }
       }
@@ -70,47 +67,49 @@ resource "kubernetes_deployment" "mysql" {
   }
 }
 
-resource "kubernetes_service" "mysql" {
-  depends_on = [kubernetes_deployment.mysql]
-  metadata {
-    name      = "mysql" // El nombre del servicio que usarán otros pods
-    namespace = var.k8s_namespace
-  }
-  spec {
-    selector = { app = "mysql" }
-    port {
-      port        = 3306
-      target_port = 3306
-    }
-    type = "ClusterIP"
-  }
-}
-
 
 # ==============================================================================
 # NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
 # ==============================================================================
+
 resource "kubernetes_deployment" "zipkin" {
-  # Dependencia explícita en la creación del namespace.
   depends_on = [kubernetes_service.mysql]
   
-  metadata {
-    name      = "zipkin"
-    namespace = var.k8s_namespace # Usar la variable de namespace
-    labels    = { app = "zipkin" }
-  }
+  metadata { /* ... */ }
   spec {
     replicas = 1
-    selector { match_labels = { app = "zipkin" } }
+    selector { /* ... */ }
     template {
-      metadata { labels = { app = "zipkin" } }
+      metadata { /* ... */ }
       spec {
         container {
           name  = "zipkin"
-          # CAMBIO: La imagen de Zipkin ahora también viene del mapa.
-          # Esto te da la flexibilidad de actualizarla desde Jenkins si lo necesitas.
           image = var.service_images["zipkin"]
           port { container_port = 9411 }
+
+          env {
+            name  = "STORAGE_TYPE"
+            value = "mysql"
+          }
+          env {
+            name  = "MYSQL_JDBC_URL"
+            // Usando la base de datos principal para simplificar
+            value = "jdbc:mysql://mysql:3306/${kubernetes_secret.mysql_secrets.data["mysql-database"]}?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
+          }
+          env {
+            name  = "MYSQL_USER"
+            value = "root"
+          }
+          env {
+            name  = "MYSQL_PASS"
+            value_from {
+              // CORRECCIÓN: 'secret_key_ref' está en su propia línea
+              secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key  = "mysql-root-password"
+              }
+            }
+          }
         }
       }
     }
