@@ -19,8 +19,22 @@ resource "kubernetes_namespace" "env_namespace" {
 # ==============================================================================
 # DESPLIEGUE DE LA BASE DE DATOS PARA ESTE ENTORNO
 # ==============================================================================
+# BLOQUE 1: El Secret para las contraseñas
+resource "kubernetes_secret" "mysql_secrets" {
+  depends_on = [kubernetes_namespace.env_namespace]
+  metadata {
+    name      = "mysql-secret"
+    namespace = var.k8s_namespace
+  }
+  data = {
+    "mysql-root-password" = "my-stage-secret-password" // Usa una contraseña segura
+    "mysql-database"      = "ecommerce_stage_db"
+  }
+}
+
+# BLOQUE 2: El Deployment para el pod de MySQL
 resource "kubernetes_deployment" "mysql" {
-  depends_on = [kubernetes_secret.mysql_secrets]
+  depends_on = [kubernetes_secret.mysql_secrets] // Depende del Secret
   metadata {
     name      = "mysql"
     namespace = var.k8s_namespace
@@ -36,14 +50,9 @@ resource "kubernetes_deployment" "mysql" {
           name  = "mysql"
           image = "mysql:8.0"
           port { container_port = 3306 }
-          
-          # ==========================================================
-          # SINTAXIS CORREGIDA
-          # ==========================================================
           env {
             name  = "MYSQL_ROOT_PASSWORD"
             value_from {
-              // CORRECCIÓN: 'secret_key_ref' está en su propia línea
               secret_key_ref {
                 name = kubernetes_secret.mysql_secrets.metadata[0].name
                 key  = "mysql-root-password"
@@ -53,7 +62,6 @@ resource "kubernetes_deployment" "mysql" {
           env {
             name = "MYSQL_DATABASE"
             value_from {
-               // CORRECCIÓN: 'secret_key_ref' está en su propia línea
                secret_key_ref {
                 name = kubernetes_secret.mysql_secrets.metadata[0].name
                 key = "mysql-database"
@@ -66,7 +74,22 @@ resource "kubernetes_deployment" "mysql" {
   }
 }
 
-
+# BLOQUE 3: El Service para exponer MySQL en la red
+resource "kubernetes_service" "mysql" {
+  depends_on = [kubernetes_deployment.mysql] // Depende del Deployment
+  metadata {
+    name      = "mysql"
+    namespace = var.k8s_namespace
+  }
+  spec {
+    selector = { app = "mysql" }
+    port {
+      port        = 3306
+      target_port = 3306
+    }
+    type = "ClusterIP"
+  }
+}
 # ==============================================================================
 # NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
 # ==============================================================================
