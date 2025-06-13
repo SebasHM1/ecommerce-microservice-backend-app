@@ -135,7 +135,7 @@ locals {
 # 3.1: User Service
 module "user-service" {
   source = "../modules/microservice"
-  depends_on = [module.service-discovery]
+  depends_on = [module.cloud-config]
 
   name           = "user-service"
   namespace      = var.k8s_namespace
