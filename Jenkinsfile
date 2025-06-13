@@ -368,7 +368,7 @@ spec:
             }
         }
 
-
+        /*
         stage('Approval: Promote to STAGING?') {
             // MODIFICADO: La aprobación solo tiene sentido si ambas fases (DEV y STAGING) están activas.
             when { 
@@ -378,14 +378,22 @@ spec:
                 }
             }
             steps {
-                input id: 'promoteToStagingGate', 
+                timeout(time: 15, unit: 'MINUTES') {
+                    input id: 'promoteToStagingGate', 
                           message: "El artefacto con ID '${IMAGE_TAG_SUFFIX}' ha sido desplegado en DEV. ¿Aprobar promoción a STAGING?", 
-                          ok: 'Aprobar'
+                          submitter: 'admin,release-managers' 
+                }
             }
         }
-
+        */
         stage('Deploy to STAGING & Run E2E Tests') {
-            when { expression { return params.RUN_PROMOTE_STAGING } }
+            when { 
+                
+                allOf {
+                    expression { return currentBuild.currentResult == 'SUCCESS' }
+                    expression { return params.RUN_PROMOTE_STAGING }
+                }
+
             steps {
                 script {
                     // ==========================================================
@@ -409,7 +417,7 @@ spec:
                 }
             }
         }
-
+        /*
         stage('Approval: Promote to PRODUCTION?') {
             when { 
                 allOf {
@@ -427,9 +435,16 @@ spec:
                 }
             }
         }
-
+*/
         stage('Deploy to PRODUCTION') {
-            when { expression { return params.RUN_PROMOTE_PROD } }
+            when { 
+                allOf {
+                    expression { return params.RUN_PROMOTE_STAGING } // Debe estar activado el flujo de Staging
+                    expression { return params.RUN_PROMOTE_PROD }   // Debe estar activado el flujo de Prod
+                    // Esta es la condición clave:
+                    expression { return currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
             steps {
                 script {
                     // ==========================================================
