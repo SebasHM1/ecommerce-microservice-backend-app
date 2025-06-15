@@ -437,29 +437,37 @@ spec:
 
         stage('Create Semantic Version & Release') {
             steps {
-                // Usamos las credenciales de Git con el token de acceso personal
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
-                        echo "Iniciando proceso de versionado semántico en la rama '${env.BRANCH_NAME}'..."
+                        // ==========================================================
+                        // OBTENER EL NOMBRE DE LA RAMA MANUALMENTE
+                        // ==========================================================
+                        // 'git branch --show-current' es el comando moderno y limpio para esto.
+                        def currentBranch = sh(script: 'git branch --show-current', returnStdout: true).trim()
                         
-                        // Configurar Git para usar las credenciales.
-                        // El email es importante para que el commit de la release tenga un autor.
+                        echo "Rama detectada: '${currentBranch}'"
+                        
+                        // ==========================================================
+                        // VERIFICACIÓN MANUAL DE LA RAMA
+                        // ==========================================================
+                        if (currentBranch != 'develop') {
+                            echo "El versionado solo se activa en la rama 'develop'. Omitiendo etapa."
+                            return // Salimos de la etapa si no es la rama correcta
+                        }
+
+                        echo "Iniciando proceso de versionado semántico en la rama '${currentBranch}'..."
+                        
                         sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI"'
                         
-                        // Semantic-release necesita la URL del repo con autenticación.
-                        // Reemplaza 'sebashm1/ecommerce-microservice-backend-app' con tu repo.
                         def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        // Ejecutar semantic-release
-                        // La variable de entorno GITHUB_TOKEN es la que usa el plugin @semantic-release/github
+                        // Usamos la variable 'currentBranch' que obtuvimos manualmente
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
-                            export GIT_BRANCH=${env.BRANCH_NAME}
                             
-                            # -r especifica la URL del repositorio remoto
-                            # -b especifica la rama
-                            npx semantic-release -r ${repoUrl} -b ${env.BRANCH_NAME}
+                            # Usamos la variable de Groovy inyectada en el script de shell
+                            npx semantic-release -r ${repoUrl} -b ${currentBranch}
                         """
                     }
                 }
