@@ -155,47 +155,35 @@ spec:
                 // ==================================================================
         // ETAPA CORREGIDA PARA SOLUCIONAR EL PROBLEMA DE CERTIFICADOS
         // ==================================================================
-        stage('Prepare Java TrustStore') {
+                stage('Prepare Java TrustStore') {
             steps {
                 script {
-                    echo "Solucionando problema de certificado SSL para smtp.gmail.com..."
-                    
+                    echo "Solucionando problema de certificado SSL..."
                     def trustStorePassword = 'changeit'
+
+                    // RUTA FIJA Y CORRECTA para el contenedor 'tools' basada en tus logs anteriores.
+                    def javaHome = "/usr/lib/jvm/java-17-openjdk-amd64"
                     
-                    // MODIFICADO: No usamos tool 'jdk17'. Confiamos en que JAVA_HOME esté definido
-                    // en la imagen o lo encontramos.
-                    if (env.JAVA_HOME == null || env.JAVA_HOME.trim().isEmpty()) {
-                        echo "WARN: La variable de entorno JAVA_HOME no está definida. Intentando localizarla..."
-                        // En sistemas Debian/Ubuntu, esta es la ruta más común para OpenJDK 17
-                        env.JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
-                        
-                        if (!fileExists(env.JAVA_HOME)) {
-                           error("ERROR: No se pudo encontrar el directorio de JAVA_HOME en ${env.JAVA_HOME}. " + 
-                                 "Verifica la ruta en tu imagen Docker o define la variable de entorno JAVA_HOME.")
-                        }
+                    if (!fileExists(javaHome)) {
+                       error("ERROR CRÍTICO: El directorio de JAVA_HOME esperado en '${javaHome}' no existe. Verifica tu imagen Docker 'tools'.")
                     }
 
-                    def javaHome = env.JAVA_HOME
                     def trustStorePath = "${javaHome}/lib/security/cacerts"
-                    
-                    echo "Usando JAVA_HOME: ${javaHome}"
+                    echo "Usando JAVA_HOME del contenedor 'tools': ${javaHome}"
                     echo "Ubicación del TrustStore: ${trustStorePath}"
                     
-                    // El resto del script es el mismo, pero ahora usa la ruta correcta
+                    // Este script ahora debería encontrar keytool
                     sh """
                         set +x
                         echo "Descargando certificado de smtp.gmail.com:465..."
                         openssl s_client -connect smtp.gmail.com:465 -servername smtp.gmail.com < /dev/null | \
                           sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /tmp/gmail.crt
 
-                        echo "Verificando que el certificado se ha descargado:"
-                        cat /tmp/gmail.crt
-                        
                         echo "Importando el certificado al TrustStore de Java..."
                         "${javaHome}/bin/keytool" -importcert -noprompt \
                           -keystore "${trustStorePath}" \
                           -storepass "${trustStorePassword}" \
-                          -alias "smtp.gmail.com" \
+                          -alias "smtp.gmail.com-avast-fix" \
                           -file /tmp/gmail.crt
                         
                         echo "Certificado importado correctamente."
