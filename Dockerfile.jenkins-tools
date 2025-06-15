@@ -61,6 +61,15 @@ RUN apt-get update && apt-get install -y -qq --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && npm cache clean --force
 
+# MODIFICACIÓN: Añadir semantic-release y sus plugins
+RUN echo "Installing Semantic Release and plugins..." \
+    && npm install -g \
+       semantic-release \
+       @semantic-release/commit-analyzer \
+       @semantic-release/release-notes-generator \
+       @semantic-release/git \
+       @semantic-release/github
+
 RUN echo "Downloading Trivy HTML template..." \
     && mkdir -p /root/trivy-templates \
     && wget -qO /root/trivy-templates/html.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
