@@ -152,48 +152,6 @@ spec:
 
     stages {
 
-        
-        
-        // ==================================================================
-        // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
-        // ==================================================================
-        
-        stage('Initialize & Configure Build') { // MODIFICADO: Nombre más genérico
-            steps {
-                script {
-                    sh "git config --global --add safe.directory ${WORKSPACE}"
-                    
-                    // MODIFICADO: Lógica para usar un build nuevo o uno existente
-                    if (params.RUN_BUILD_AND_ANALYZE || params.RUN_PACKAGE_AND_SCAN) {
-                        echo "Modo: NUEVA BUILD. Se generará un nuevo ID de artefacto."
-                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                        IMAGE_TAG_SUFFIX = gitCommit
-                    } else {
-                        echo "Modo: RE-DESPLIEGUE. Se usará un ID de artefacto existente."
-                        if (params.EXISTING_BUILD_ID.trim().isEmpty()) {
-                            error("ERROR: Has omitido las fases de construcción, pero no has proporcionado un 'EXISTING_BUILD_ID'. El pipeline no sabe qué desplegar.")
-                        }
-                        IMAGE_TAG_SUFFIX = params.EXISTING_BUILD_ID.trim()
-                    }
-                    
-                    echo "===================================================================="
-                    echo "ID del artefacto para esta ejecución: ${IMAGE_TAG_SUFFIX}"
-                    echo "===================================================================="
-                    
-                    // La comprobación de SonarQube se hace siempre para tener la variable lista
-                    SONAR_IS_AVAILABLE = isSonarQubeAvailable()
-                }
-            }
-        }
-
-        stage('Debug') {
-            steps {
-                sh 'echo $JAVA_HOME'
-                sh 'which java'
-                sh 'ls -l /usr/lib/jvm'
-            }
-        }
-
         stage('Prepare Java TrustStore') {
             steps {
                 script {
@@ -238,6 +196,40 @@ spec:
                 }
             }
         }
+        
+        // ==================================================================
+        // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
+        // ==================================================================
+        
+        stage('Initialize & Configure Build') { // MODIFICADO: Nombre más genérico
+            steps {
+                script {
+                    sh "git config --global --add safe.directory ${WORKSPACE}"
+                    
+                    // MODIFICADO: Lógica para usar un build nuevo o uno existente
+                    if (params.RUN_BUILD_AND_ANALYZE || params.RUN_PACKAGE_AND_SCAN) {
+                        echo "Modo: NUEVA BUILD. Se generará un nuevo ID de artefacto."
+                        def gitCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                        IMAGE_TAG_SUFFIX = gitCommit
+                    } else {
+                        echo "Modo: RE-DESPLIEGUE. Se usará un ID de artefacto existente."
+                        if (params.EXISTING_BUILD_ID.trim().isEmpty()) {
+                            error("ERROR: Has omitido las fases de construcción, pero no has proporcionado un 'EXISTING_BUILD_ID'. El pipeline no sabe qué desplegar.")
+                        }
+                        IMAGE_TAG_SUFFIX = params.EXISTING_BUILD_ID.trim()
+                    }
+                    
+                    echo "===================================================================="
+                    echo "ID del artefacto para esta ejecución: ${IMAGE_TAG_SUFFIX}"
+                    echo "===================================================================="
+                    
+                    // La comprobación de SonarQube se hace siempre para tener la variable lista
+                    SONAR_IS_AVAILABLE = isSonarQubeAvailable()
+                }
+            }
+        }
+
+        
         
         stage('Compile and Test All Services') {
             // NUEVO: Condición de ejecución
