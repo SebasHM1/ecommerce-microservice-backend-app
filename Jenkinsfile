@@ -152,27 +152,37 @@ spec:
 
     stages {
 
-                // ==================================================================
-        // ETAPA CORREGIDA PARA SOLUCIONAR EL PROBLEMA DE CERTIFICADOS
-        // ==================================================================
                 stage('Prepare Java TrustStore') {
             steps {
                 script {
-                    echo "Solucionando problema de certificado SSL..."
+                    echo "Solucionando problema de certificado SSL dinámicamente..."
                     def trustStorePassword = 'changeit'
 
-                    // RUTA FIJA Y CORRECTA para el contenedor 'tools' basada en tus logs anteriores.
-                    def javaHome = "/usr/lib/jvm/java-17-openjdk-amd64"
-                    
-                    if (!fileExists(javaHome)) {
-                       error("ERROR CRÍTICO: El directorio de JAVA_HOME esperado en '${javaHome}' no existe. Verifica tu imagen Docker 'tools'.")
+                    // =================================================================
+                    // CÓDIGO DINÁMICO PARA ENCONTRAR JAVA_HOME
+                    // =================================================================
+                    // 1. Encontrar la ubicación del ejecutable 'java'
+                    def javaPath = sh(script: 'readlink -f $(which java)', returnStdout: true).trim()
+                    if (javaPath.isEmpty()) {
+                        error("ERROR CRÍTICO: No se pudo encontrar el ejecutable 'java' en el PATH.")
                     }
+                    echo "Ejecutable 'java' encontrado en: ${javaPath}"
 
+                    // 2. Deducir JAVA_HOME. Normalmente es el directorio dos niveles por encima de '.../bin/java'
+                    // Ejemplo: /usr/lib/jvm/java-17-openjdk-amd64/bin/java -> /usr/lib/jvm/java-17-openjdk-amd64
+                    def javaHome = javaPath.split('/bin/java')[0]
+                    
+                    if (!fileExists(javaHome) || !fileExists("${javaHome}/bin/keytool")) {
+                        error("ERROR CRÍTICO: Se dedujo que JAVA_HOME es '${javaHome}', pero no contiene 'bin/keytool'. Verificación fallida.")
+                    }
+                    
                     def trustStorePath = "${javaHome}/lib/security/cacerts"
-                    echo "Usando JAVA_HOME del contenedor 'tools': ${javaHome}"
+                    echo "JAVA_HOME deducido dinámicamente: ${javaHome}"
                     echo "Ubicación del TrustStore: ${trustStorePath}"
                     
-                    // Este script ahora debería encontrar keytool
+                    // =================================================================
+                    // El resto del script es el mismo, pero ahora 100% fiable
+                    // =================================================================
                     sh """
                         set +x
                         echo "Descargando certificado de smtp.gmail.com:465..."
@@ -183,7 +193,7 @@ spec:
                         "${javaHome}/bin/keytool" -importcert -noprompt \
                           -keystore "${trustStorePath}" \
                           -storepass "${trustStorePassword}" \
-                          -alias "smtp.gmail.com-avast-fix" \
+                          -alias "smtp.gmail.com-fix" \
                           -file /tmp/gmail.crt
                         
                         echo "Certificado importado correctamente."
