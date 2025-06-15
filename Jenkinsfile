@@ -510,8 +510,9 @@ spec:
                 }
             }
         }
+        */
     }
-*/
+
     post {
         // Se ejecuta cuando el pipeline falla (resultado 'FAILURE')
         failure {
