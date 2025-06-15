@@ -422,12 +422,6 @@ spec:
         }
 
         stage('Create Semantic Version & Release') {
-            // CONDICIONES DE EJECUCIÓN:
-            when {
-                allOf {
-                    branch 'develop'
-                }
-            }
             steps {
                 // Usamos las credenciales de Git con el token de acceso personal
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
