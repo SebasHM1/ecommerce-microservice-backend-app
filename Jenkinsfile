@@ -406,6 +406,26 @@ spec:
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================
 
+        stage('Force Unlock Terraform State (Emergency)') {
+                // Pon una condición para que solo se ejecute cuando lo necesites,
+                // por ejemplo, con un parámetro de pipeline.
+                // O simplemente añádela y quítala después de usarla.
+                steps {
+                    script {
+                        // Copia el LOCK ID del mensaje de error
+                        def lockId = "b1e63bed-c76a-0d92-38e0-d81a424f7ddd" // <-- ¡Pega el ID de tu error aquí!
+                        
+                        echo "Intentando forzar el desbloqueo del estado de Terraform para el entorno 'stage'..."
+                        dir("terraform/stage") {
+                            // Primero, inicializamos terraform para que sepa dónde está el backend
+                            sh 'terraform init -input=false'
+                            // Luego, forzamos el desbloqueo con el ID del bloqueo
+                            sh "terraform force-unlock -force ${lockId}"
+                        }
+                        echo "¡Desbloqueo forzado completado! El siguiente despliegue debería funcionar."
+                    }
+                }
+        }
         stage('Deploy to DEV') {
             when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
