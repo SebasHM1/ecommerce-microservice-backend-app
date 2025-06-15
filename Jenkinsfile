@@ -152,28 +152,36 @@ spec:
 
     stages {
 
+                // ==================================================================
+        // ETAPA CORREGIDA PARA SOLUCIONAR EL PROBLEMA DE CERTIFICADOS
+        // ==================================================================
         stage('Prepare Java TrustStore') {
             steps {
                 script {
                     echo "Solucionando problema de certificado SSL para smtp.gmail.com..."
                     
-                    // La contraseña por defecto del truststore 'cacerts' de Java es "changeit"
                     def trustStorePassword = 'changeit'
                     
-                    // Ubicación del truststore en la mayoría de las imágenes JDK
-                    def javaHome = tool 'jdk17' // Asegúrate de que tienes una herramienta JDK configurada en Jenkins con este nombre
-                    if (env.JAVA_HOME != null) {
-                        // Si la variable de entorno ya existe (común en agentes JNLP)
-                        javaHome = env.JAVA_HOME
+                    // MODIFICADO: No usamos tool 'jdk17'. Confiamos en que JAVA_HOME esté definido
+                    // en la imagen o lo encontramos.
+                    if (env.JAVA_HOME == null || env.JAVA_HOME.trim().isEmpty()) {
+                        echo "WARN: La variable de entorno JAVA_HOME no está definida. Intentando localizarla..."
+                        // En sistemas Debian/Ubuntu, esta es la ruta más común para OpenJDK 17
+                        env.JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
+                        
+                        if (!fileExists(env.JAVA_HOME)) {
+                           error("ERROR: No se pudo encontrar el directorio de JAVA_HOME en ${env.JAVA_HOME}. " + 
+                                 "Verifica la ruta en tu imagen Docker o define la variable de entorno JAVA_HOME.")
+                        }
                     }
+
+                    def javaHome = env.JAVA_HOME
                     def trustStorePath = "${javaHome}/lib/security/cacerts"
                     
-                    echo "JAVA_HOME detectado en: ${javaHome}"
+                    echo "Usando JAVA_HOME: ${javaHome}"
                     echo "Ubicación del TrustStore: ${trustStorePath}"
                     
-                    // Descargar el certificado de smtp.gmail.com y añadirlo al truststore
-                    // El comando 'openssl' debe estar disponible en tu imagen 'tools'
-                    // El comando 'keytool' está en el bin de JAVA_HOME
+                    // El resto del script es el mismo, pero ahora usa la ruta correcta
                     sh """
                         set +x
                         echo "Descargando certificado de smtp.gmail.com:465..."
