@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Actualizar e instalar todas las dependencias de una vez
 RUN apt-get update && apt-get install -y -qq --no-install-recommends \
-    openjdk-17-jdk \
+    openjdk-17-jdk openjdk-17-jdk-headless \    
     maven \
     sudo \
     curl \
@@ -80,4 +80,7 @@ RUN echo "Java version:" && java -version \
     && echo "Terraform version:" && terraform --version \
     && echo "Trivy version:" && trivy --version
 
+RUN echo "Verificando la existencia de keytool..." \
+    && ls -l $(readlink -f $(which java)) \
+    && ls -l $(readlink -f $(which keytool))
 # El ENTRYPOINT/CMD del contenedor 'tools' se anulará con 'sleep infinity' en el Jenkinsfile.

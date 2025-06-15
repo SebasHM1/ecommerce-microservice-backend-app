@@ -152,54 +152,52 @@ spec:
 
     stages {
 
-                stage('Prepare Java TrustStore') {
+                     stage('Prepare Java TrustStore') {
             steps {
-                script {
-                    echo "Solucionando problema de certificado SSL dinámicamente..."
-                    def trustStorePassword = 'changeit'
-
-                    // =================================================================
-                    // CÓDIGO DINÁMICO PARA ENCONTRAR JAVA_HOME
-                    // =================================================================
-                    // 1. Encontrar la ubicación del ejecutable 'java'
-                    def javaPath = sh(script: 'readlink -f $(which java)', returnStdout: true).trim()
-                    if (javaPath.isEmpty()) {
-                        error("ERROR CRÍTICO: No se pudo encontrar el ejecutable 'java' en el PATH.")
-                    }
-                    echo "Ejecutable 'java' encontrado en: ${javaPath}"
-
-                    // 2. Deducir JAVA_HOME. Normalmente es el directorio dos niveles por encima de '.../bin/java'
-                    // Ejemplo: /usr/lib/jvm/java-17-openjdk-amd64/bin/java -> /usr/lib/jvm/java-17-openjdk-amd64
-                    def javaHome = javaPath.split('/bin/java')[0]
+                // FORZAR EJECUCIÓN EN EL CONTENEDOR 'tools'
+                // Toda la lógica, incluidas las verificaciones, se mueve dentro de un solo bloque sh.
+                sh '''
+                    set -e  # Hace que el script falle inmediatamente si un comando falla
+                    echo "Solucionando problema de certificado SSL (ejecución forzada en contenedor 'tools')..."
                     
-                    if (!fileExists(javaHome) || !fileExists("${javaHome}/bin/keytool")) {
-                        error("ERROR CRÍTICO: Se dedujo que JAVA_HOME es '${javaHome}', pero no contiene 'bin/keytool'. Verificación fallida.")
-                    }
+                    # --- Lógica dinámica para encontrar JAVA_HOME ---
+                    JAVA_EXEC_PATH=$(readlink -f $(which java))
+                    if [ -z "$JAVA_EXEC_PATH" ]; then
+                        echo "ERROR CRÍTICO: No se pudo encontrar el ejecutable 'java' en el PATH."
+                        exit 1
+                    fi
+                    echo "Ejecutable 'java' encontrado en: $JAVA_EXEC_PATH"
                     
-                    def trustStorePath = "${javaHome}/lib/security/cacerts"
-                    echo "JAVA_HOME deducido dinámicamente: ${javaHome}"
-                    echo "Ubicación del TrustStore: ${trustStorePath}"
-                    
-                    // =================================================================
-                    // El resto del script es el mismo, pero ahora 100% fiable
-                    // =================================================================
-                    sh """
-                        set +x
-                        echo "Descargando certificado de smtp.gmail.com:465..."
-                        openssl s_client -connect smtp.gmail.com:465 -servername smtp.gmail.com < /dev/null | \
-                          sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /tmp/gmail.crt
+                    JAVA_HOME_DEDUCED=$(echo "$JAVA_EXEC_PATH" | sed 's|/bin/java$||')
+                    KEYTOOL_PATH="$JAVA_HOME_DEDUCED/bin/keytool"
 
-                        echo "Importando el certificado al TrustStore de Java..."
-                        "${javaHome}/bin/keytool" -importcert -noprompt \
-                          -keystore "${trustStorePath}" \
-                          -storepass "${trustStorePassword}" \
-                          -alias "smtp.gmail.com-fix" \
-                          -file /tmp/gmail.crt
-                        
-                        echo "Certificado importado correctamente."
-                        set -x
-                    """
-                }
+                    # --- Verificación ---
+                    if [ ! -f "$KEYTOOL_PATH" ]; then
+                        echo "ERROR CRÍTICO: 'keytool' no encontrado en la ruta esperada: $KEYTOOL_PATH"
+                        exit 1
+                    fi
+                    echo "JAVA_HOME deducido: $JAVA_HOME_DEDUCED"
+                    echo "Ubicación de 'keytool' confirmada: $KEYTOOL_PATH"
+                    
+                    TRUSTSTORE_PATH="$JAVA_HOME_DEDUCED/lib/security/cacerts"
+                    TRUSTSTORE_PASS="changeit"
+                    CERT_ALIAS="smtp-gmail-com"
+                    CERT_FILE="/tmp/gmail.crt"
+                    
+                    # --- Lógica de importación del certificado ---
+                    echo "Descargando certificado de smtp.gmail.com:465..."
+                    openssl s_client -connect smtp.gmail.com:465 -servername smtp.gmail.com < /dev/null 2>/dev/null | \
+                      sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > $CERT_FILE
+                      
+                    echo "Importando certificado al TrustStore..."
+                    "$KEYTOOL_PATH" -importcert -noprompt \
+                      -keystore "$TRUSTSTORE_PATH" \
+                      -storepass "$TRUSTSTORE_PASS" \
+                      -alias "$CERT_ALIAS" \
+                      -file "$CERT_FILE"
+                      
+                    echo "Certificado importado con éxito."
+                '''
             }
         }
         
