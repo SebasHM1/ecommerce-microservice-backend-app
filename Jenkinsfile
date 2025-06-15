@@ -608,7 +608,7 @@ spec:
         // Siempre se ejecuta. Ideal para limpieza.
         always {
             echo "Pipeline finalizado. Limpiando el workspace..."
-            deleteDir() // Limpia el workspace al final de la ejecución
+            sh 'rm -rf * .??*' // Limpia el workspace al final de la ejecución
         }
     }
 }
