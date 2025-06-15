@@ -148,6 +148,51 @@ spec:
         TRIVY_SEVERITY = 'CRITICAL,HIGH'
     }
 
+    stage('Prepare Java TrustStore') {
+            steps {
+                script {
+                    echo "Solucionando problema de certificado SSL para smtp.gmail.com..."
+                    
+                    // La contraseña por defecto del truststore 'cacerts' de Java es "changeit"
+                    def trustStorePassword = 'changeit'
+                    
+                    // Ubicación del truststore en la mayoría de las imágenes JDK
+                    def javaHome = tool 'jdk17' // Asegúrate de que tienes una herramienta JDK configurada en Jenkins con este nombre
+                    if (env.JAVA_HOME != null) {
+                        // Si la variable de entorno ya existe (común en agentes JNLP)
+                        javaHome = env.JAVA_HOME
+                    }
+                    def trustStorePath = "${javaHome}/lib/security/cacerts"
+                    
+                    echo "JAVA_HOME detectado en: ${javaHome}"
+                    echo "Ubicación del TrustStore: ${trustStorePath}"
+                    
+                    // Descargar el certificado de smtp.gmail.com y añadirlo al truststore
+                    // El comando 'openssl' debe estar disponible en tu imagen 'tools'
+                    // El comando 'keytool' está en el bin de JAVA_HOME
+                    sh """
+                        set +x
+                        echo "Descargando certificado de smtp.gmail.com:465..."
+                        openssl s_client -connect smtp.gmail.com:465 -servername smtp.gmail.com < /dev/null | \
+                          sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > /tmp/gmail.crt
+
+                        echo "Verificando que el certificado se ha descargado:"
+                        cat /tmp/gmail.crt
+                        
+                        echo "Importando el certificado al TrustStore de Java..."
+                        "${javaHome}/bin/keytool" -importcert -noprompt \
+                          -keystore "${trustStorePath}" \
+                          -storepass "${trustStorePassword}" \
+                          -alias "smtp.gmail.com" \
+                          -file /tmp/gmail.crt
+                        
+                        echo "Certificado importado correctamente."
+                        set -x
+                    """
+                }
+            }
+        }
+
     stages {
         
         // ==================================================================
@@ -466,9 +511,73 @@ spec:
     }
 
     post {
+        // Se ejecuta cuando el pipeline falla (resultado 'FAILURE')
+        failure {
+            script {
+                def subject = "❌ FALLO: Pipeline '${env.JOB_NAME}' #${env.BUILD_NUMBER}"
+                def body = """
+                <h1>Pipeline Fallida: ${env.JOB_NAME}</h1>
+                <p>La build <b>#${env.BUILD_NUMBER}</b> ha fallado.</p>
+                <p><b>Artefacto/Commit:</b> ${IMAGE_TAG_SUFFIX}</p>
+                <p><b>Causa:</b> ${currentBuild.fullStatus.join(', ')}</p>
+                <p>Revisa los logs para más detalles:</p>
+                <p><a href='${env.BUILD_URL}'>Ver Build en Jenkins</a></p>
+                """
+                
+                emailext (
+                    subject: subject,
+                    body: body,
+                    to: 'dev-team@tuempresa.com, qa-team@tuempresa.com', // Cambia esto por tus listas de correo
+                    mimeType: 'text/html'
+                )
+            }
+        }
+        
+        // Se ejecuta cuando el pipeline es inestable (resultado 'UNSTABLE'), como en tus tests E2E
+        unstable {
+            script {
+                def subject = "⚠️ INESTABLE: Pipeline '${env.JOB_NAME}' #${env.BUILD_NUMBER}"
+                def body = """
+                <h1>Pipeline Inestable: ${env.JOB_NAME}</h1>
+                <p>La build <b>#${env.BUILD_NUMBER}</b> ha finalizado como INESTABLE.</p>
+                <p><b>Artefacto/Commit:</b> ${IMAGE_TAG_SUFFIX}</p>
+                <p>Esto suele ocurrir por fallos en los tests E2E que no son críticos. Por favor, revisa los artefactos de Postman.</p>
+                <p><a href='${env.BUILD_URL}'>Ver Build y Artefactos en Jenkins</a></p>
+                """
+                
+                emailext (
+                    subject: subject,
+                    body: body,
+                    to: 'qa-team@tuempresa.com', // Notificar solo a QA, por ejemplo
+                    mimeType: 'text/html'
+                )
+            }
+        }
+        
+        // (Opcional) Notificación de éxito
+        success {
+            script {
+                def subject = "✅ ÉXITO: Pipeline '${env.JOB_NAME}' #${env.BUILD_NUMBER} completado"
+                def body = """
+                <h1>Pipeline Exitoso: ${env.JOB_NAME}</h1>
+                <p>La build <b>#${env.BUILD_NUMBER}</b> ha finalizado correctamente.</p>
+                <p><b>Artefacto/Commit desplegado:</b> ${IMAGE_TAG_SUFFIX}</p>
+                <p><a href='${env.BUILD_URL}'>Ver Build en Jenkins</a></p>
+                """
+                
+                emailext (
+                    subject: subject,
+                    body: body,
+                    to: 'release-manager@tuempresa.com', // Notificar al responsable
+                    mimeType: 'text/html'
+                )
+            }
+        }
+        
+        // Siempre se ejecuta. Ideal para limpieza.
         always {
-            echo "Pipeline finished."
-            // deleteDir()
+            echo "Pipeline finalizado. Limpiando el workspace..."
+            cleanWs() // Limpia el workspace al final de la ejecución
         }
     }
 }
