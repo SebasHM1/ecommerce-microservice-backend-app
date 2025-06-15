@@ -582,7 +582,7 @@ spec:
         // Siempre se ejecuta. Ideal para limpieza.
         always {
             echo "Pipeline finalizado. Limpiando el workspace..."
-            cleanWs() // Limpia el workspace al final de la ejecución
+            deleteDir() // Limpia el workspace al final de la ejecución
         }
     }
 }
