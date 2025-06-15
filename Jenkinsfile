@@ -148,7 +148,11 @@ spec:
         TRIVY_SEVERITY = 'CRITICAL,HIGH'
     }
 
-    stage('Prepare Java TrustStore') {
+    
+
+    stages {
+
+        stage('Prepare Java TrustStore') {
             steps {
                 script {
                     echo "Solucionando problema de certificado SSL para smtp.gmail.com..."
@@ -192,8 +196,6 @@ spec:
                 }
             }
         }
-
-    stages {
         
         // ==================================================================
         // FASE 1: CONSTRUIR, PROBAR Y ETIQUETAR UN ARTEFACTO ÚNICO
@@ -430,7 +432,7 @@ spec:
                 }
             }
         }
-        */
+        
         stage('Deploy to STAGING & Run E2E Tests') {
             when { 
                 
@@ -462,7 +464,7 @@ spec:
                 }
             }
         }
-        /*
+        
         stage('Approval: Promote to PRODUCTION?') {
             when { 
                 allOf {
@@ -480,7 +482,7 @@ spec:
                 }
             }
         }
-*/
+
         stage('Deploy to PRODUCTION') {
             when { 
                 allOf {
@@ -509,7 +511,7 @@ spec:
             }
         }
     }
-
+*/
     post {
         // Se ejecuta cuando el pipeline falla (resultado 'FAILURE')
         failure {
