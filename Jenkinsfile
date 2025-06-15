@@ -87,6 +87,20 @@ void runEndToEndTests() {
     }
 }
 
+/**
+ * Fuerza el desbloqueo de un estado de Terraform para un entorno específico.
+ * @param terraformEnv El directorio del entorno (ej: "dev", "stage").
+ * @param lockId El ID del bloqueo a eliminar.
+ */
+void forceUnlockTerraform(String terraformEnv, String lockId) {
+    echo "EMERGENCY: Forcing unlock for Terraform environment '${terraformEnv}' with Lock ID ${lockId}"
+    dir("terraform/${terraformEnv}") {
+        sh 'terraform init -input=false'
+        sh "terraform force-unlock -force ${lockId}"
+    }
+    echo "EMERGENCY: Unlock for '${terraformEnv}' completed."
+}
+
 pipeline {
     agent {
         kubernetes {
@@ -152,7 +166,7 @@ spec:
 
     stages {
 
-                     stage('Prepare Java TrustStore') {
+            stage('Prepare Java TrustStore') {
             steps {
                 // FORZAR EJECUCIÓN EN EL CONTENEDOR 'tools'
                 // Toda la lógica, incluidas las verificaciones, se mueve dentro de un solo bloque sh.
@@ -198,6 +212,22 @@ spec:
                       
                     echo "Certificado importado con éxito."
                 '''
+            }
+        }
+
+        // ... (al principio de las stages) ...
+
+        // ==========================================================
+        // ETAPA DE EMERGENCIA PARA DESBLOQUEAR TERRAFORM (FLEXIBLE)
+        // ==========================================================
+        stage('Emergency: Terraform Unlock') {
+            // Esta etapa se ejecuta solo si se le proporciona un LOCK_ID
+            steps {
+                script {
+                    // Por defecto, desbloquea 'dev', pero se puede cambiar con un parámetro.
+                    def envToUnlock = env.TF_UNLOCK_ENV ?: 'dev'
+                    forceUnlockTerraform(envToUnlock, 'b1e63bed-c76a-0d92-38e0-d81a424f7ddd')
+                }
             }
         }
         
