@@ -186,6 +186,14 @@ spec:
             }
         }
 
+        stage('Debug') {
+            steps {
+                sh 'echo $JAVA_HOME'
+                sh 'which java'
+                sh 'ls -l /usr/lib/jvm'
+            }
+        }
+
         stage('Prepare Java TrustStore') {
             steps {
                 script {
