@@ -421,6 +421,43 @@ spec:
             }
         }
 
+        stage('Create Semantic Version & Release') {
+            // CONDICIONES DE EJECUCIÓN:
+            when {
+                allOf {
+                    branch 'develop'
+                }
+            }
+            steps {
+                // Usamos las credenciales de Git con el token de acceso personal
+                withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    script {
+                        echo "Iniciando proceso de versionado semántico en la rama '${env.BRANCH_NAME}'..."
+                        
+                        // Configurar Git para usar las credenciales.
+                        // El email es importante para que el commit de la release tenga un autor.
+                        sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
+                        sh 'git config --global user.name "Jenkins CI"'
+                        
+                        // Semantic-release necesita la URL del repo con autenticación.
+                        // Reemplaza 'sebashm1/ecommerce-microservice-backend-app' con tu repo.
+                        def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
+                        
+                        // Ejecutar semantic-release
+                        // La variable de entorno GITHUB_TOKEN es la que usa el plugin @semantic-release/github
+                        sh """
+                            export GITHUB_TOKEN=${GIT_TOKEN}
+                            export GIT_BRANCH=${env.BRANCH_NAME}
+                            
+                            # -r especifica la URL del repositorio remoto
+                            # -b especifica la rama
+                            npx semantic-release -r ${repoUrl} -b ${env.BRANCH_NAME}
+                        """
+                    }
+                }
+            }
+        }
+
         /*
         stage('Approval: Promote to STAGING?') {
             // MODIFICADO: La aprobación solo tiene sentido si ambas fases (DEV y STAGING) están activas.
@@ -438,31 +475,7 @@ spec:
                 }
             }
         }
-        */
-
-                // ==========================================================
-        // ETAPA DE EMERGENCIA PARA DESBLOQUEAR TERRAFORM
-        // ==========================================================
-        stage('Force Unlock Terraform State (Emergency)') {
-            // Pon una condición para que solo se ejecute cuando lo necesites,
-            // por ejemplo, con un parámetro de pipeline.
-            // O simplemente añádela y quítala después de usarla.
-            steps {
-                script {
-                    // Copia el LOCK ID del mensaje de error
-                    def lockId = "105c3a84-4d68-e4d7-d962-9b1cf36e92fc" // <-- ¡Pega el ID de tu error aquí!
-                    
-                    echo "Intentando forzar el desbloqueo del estado de Terraform para el entorno 'stage'..."
-                    dir("terraform/stage") {
-                        // Primero, inicializamos terraform para que sepa dónde está el backend
-                        sh 'terraform init -input=false'
-                        // Luego, forzamos el desbloqueo con el ID del bloqueo
-                        sh "terraform force-unlock -force ${lockId}"
-                    }
-                    echo "¡Desbloqueo forzado completado! El siguiente despliegue debería funcionar."
-                }
-            }
-        }
+        
 
         stage('Deploy to STAGING & Run E2E Tests') {
             when { 
@@ -513,7 +526,7 @@ spec:
                 }
             }
         }
-        */
+        
         stage('Deploy to PRODUCTION') {
             when { 
                 allOf {
@@ -542,49 +555,7 @@ spec:
             }
         }
 
-        // ==================================================================
-        // ETAPA FINAL: VERSIONADO Y RELEASE AUTOMÁTICA
-        // ==================================================================
-        stage('Create Semantic Version & Release') {
-            // CONDICIONES DE EJECUCIÓN:
-            // 1. Solo se ejecuta en la rama 'main'.
-            // 2. Solo se ejecuta si la promoción a producción fue exitosa.
-            when {
-                allOf {
-                    branch 'develop'
-                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
-            steps {
-                // Usamos las credenciales de Git con el token de acceso personal
-                withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-                    script {
-                        echo "Iniciando proceso de versionado semántico en la rama '${env.BRANCH_NAME}'..."
-                        
-                        // Configurar Git para usar las credenciales.
-                        // El email es importante para que el commit de la release tenga un autor.
-                        sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
-                        sh 'git config --global user.name "Jenkins CI"'
-                        
-                        // Semantic-release necesita la URL del repo con autenticación.
-                        // Reemplaza 'sebashm1/ecommerce-microservice-backend-app' con tu repo.
-                        def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
-                        
-                        // Ejecutar semantic-release
-                        // La variable de entorno GITHUB_TOKEN es la que usa el plugin @semantic-release/github
-                        sh """
-                            export GITHUB_TOKEN=${GIT_TOKEN}
-                            export GIT_BRANCH=${env.BRANCH_NAME}
-                            
-                            # -r especifica la URL del repositorio remoto
-                            # -b especifica la rama
-                            npx semantic-release -r ${repoUrl} -b ${env.BRANCH_NAME}
-                        """
-                    }
-                }
-            }
-        }
-
+*/
         
     }
 
