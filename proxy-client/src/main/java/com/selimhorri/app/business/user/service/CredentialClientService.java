@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import io.github.resilience4j.retry.annotation.Retry;
 
 import com.selimhorri.app.business.user.model.CredentialDto;
 import com.selimhorri.app.business.user.model.response.CredentialUserServiceCollectionDtoResponse;
@@ -20,33 +21,39 @@ import com.selimhorri.app.business.user.model.response.CredentialUserServiceColl
 public interface CredentialClientService {
 	
 	@GetMapping
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialUserServiceCollectionDtoResponse> findAll();
 	
 	@GetMapping("/{credentialId}")
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialDto> findById(
 			@PathVariable("credentialId") 
 			@NotBlank(message = "*Input must not blank!**") 
 			@Valid final String credentialId);
 	
 	@GetMapping("/username/{username}")
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialDto> findByUsername(
 			@PathVariable("username") 
 			@NotBlank(message = "*Input must not blank!**") 
 			@Valid final String username);
 	
 	@PostMapping
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialDto> save(
 			@RequestBody 
 			@NotNull(message = "*Input must not NULL!**") 
 			@Valid final CredentialDto credentialDto);
 	
 	@PutMapping
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialDto> update(
 			@RequestBody 
 			@NotNull(message = "*Input must not NULL!**") 
 			@Valid final CredentialDto credentialDto);
 	
 	@PutMapping("/{credentialId}")
+	@Retry(name = "user-service")
 	ResponseEntity<CredentialDto> update(
 			@PathVariable("credentialId") 
 			@NotBlank(message = "*Input must not blank!**") final String credentialId, 
@@ -55,6 +62,7 @@ public interface CredentialClientService {
 			@Valid final CredentialDto credentialDto);
 	
 	@DeleteMapping("/{credentialId}")
+	@Retry(name = "user-service")
 	ResponseEntity<Boolean> deleteById(@PathVariable("credentialId") @NotBlank(message = "*Input must not blank!**") @Valid final String credentialId);
 	
 }

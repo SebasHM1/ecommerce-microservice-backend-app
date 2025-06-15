@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import io.github.resilience4j.retry.annotation.Retry;
 
 import com.selimhorri.app.business.order.model.OrderDto;
 import com.selimhorri.app.business.order.model.response.OrderOrderServiceDtoCollectionResponse;
@@ -20,27 +21,32 @@ import com.selimhorri.app.business.order.model.response.OrderOrderServiceDtoColl
 public interface OrderClientService {
 	
 	@GetMapping
+	@Retry(name = "order-service")
 	public ResponseEntity<OrderOrderServiceDtoCollectionResponse> findAll();
 	
 	@GetMapping("/{orderId}")
+	@Retry(name = "order-service")
 	public ResponseEntity<OrderDto> findById(
 			@PathVariable("orderId") 
 			@NotBlank(message = "Input must not be blank!") 
 			@Valid final String orderId);
 	
 	@PostMapping
+	@Retry(name = "order-service")
 	public ResponseEntity<OrderDto> save(
 			@RequestBody 
 			@NotNull(message = "Input must not be NULL!") 
 			@Valid final OrderDto orderDto);
 	
 	@PutMapping
+	@Retry(name = "order-service")
 	public ResponseEntity<OrderDto> update(
 			@RequestBody 
 			@NotNull(message = "Input must not be NULL!") 
 			@Valid final OrderDto orderDto);
 	
 	@PutMapping("/{orderId}")
+	@Retry(name = "order-service")
 	public ResponseEntity<OrderDto> update(
 			@PathVariable("orderId")
 			@NotBlank(message = "Input must not be blank!")
@@ -50,6 +56,7 @@ public interface OrderClientService {
 			@Valid final OrderDto orderDto);
 	
 	@DeleteMapping("/{orderId}")
+	@Retry(name = "order-service")
 	public ResponseEntity<Boolean> deleteById(@PathVariable("orderId") final String orderId);
 	
 }
