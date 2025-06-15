@@ -527,12 +527,15 @@ spec:
         // Se ejecuta cuando el pipeline falla (resultado 'FAILURE')
         failure {
             script {
+                // VERIFICACIÓN: Si la variable no se inicializó, le damos un valor por defecto.
+                def commitId = env.IMAGE_TAG_SUFFIX ?: 'No definido (fallo temprano)'
+                
                 def subject = "❌ FALLO: Pipeline '${env.JOB_NAME}' #${env.BUILD_NUMBER}"
                 def body = """
                 <h1>Pipeline Fallida: ${env.JOB_NAME}</h1>
                 <p>La build <b>#${env.BUILD_NUMBER}</b> ha fallado.</p>
-                <p><b>Artefacto/Commit:</b> ${IMAGE_TAG_SUFFIX}</p>
-                <p><b>Causa:</b> ${currentBuild.currentResult}</p>
+                <p><b>Artefacto/Commit:</b> ${commitId}</p>  <!-- Usamos la variable segura -->
+                <p><b>Resultado Final:</b> ${currentBuild.currentResult}</p>
                 <p>Revisa los logs para más detalles:</p>
                 <p><a href='${env.BUILD_URL}'>Ver Build en Jenkins</a></p>
                 """
@@ -540,7 +543,7 @@ spec:
                 emailext (
                     subject: subject,
                     body: body,
-                    to: 'sebashidmar@gmail.com', // Cambia esto por tus listas de correo
+                    to: 'sebashidmar@gmail.com',
                     mimeType: 'text/html'
                 )
             }
