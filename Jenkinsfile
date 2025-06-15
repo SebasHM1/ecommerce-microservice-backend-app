@@ -524,7 +524,7 @@ spec:
                 <h1>Pipeline Fallida: ${env.JOB_NAME}</h1>
                 <p>La build <b>#${env.BUILD_NUMBER}</b> ha fallado.</p>
                 <p><b>Artefacto/Commit:</b> ${IMAGE_TAG_SUFFIX}</p>
-                <p><b>Causa:</b> ${currentBuild.fullStatus.join(', ')}</p>
+                <p><b>Causa:</b> ${currentBuild.currentResult}</p>
                 <p>Revisa los logs para más detalles:</p>
                 <p><a href='${env.BUILD_URL}'>Ver Build en Jenkins</a></p>
                 """
@@ -532,7 +532,7 @@ spec:
                 emailext (
                     subject: subject,
                     body: body,
-                    to: 'dev-team@tuempresa.com, qa-team@tuempresa.com', // Cambia esto por tus listas de correo
+                    to: 'sebashidmar@gmail.com', // Cambia esto por tus listas de correo
                     mimeType: 'text/html'
                 )
             }
@@ -553,7 +553,7 @@ spec:
                 emailext (
                     subject: subject,
                     body: body,
-                    to: 'qa-team@tuempresa.com', // Notificar solo a QA, por ejemplo
+                    to: 'sebashidmar@gmail.com', // Notificar solo a QA, por ejemplo
                     mimeType: 'text/html'
                 )
             }
@@ -573,7 +573,26 @@ spec:
                 emailext (
                     subject: subject,
                     body: body,
-                    to: 'release-manager@tuempresa.com', // Notificar al responsable
+                    to: 'sebashidmar@gmail.com', // Notificar al responsable
+                    mimeType: 'text/html'
+                )
+            }
+        }
+
+        aborted {
+            script {
+                def subject = "Aborted: Pipeline '${env.JOB_NAME}' #${env.BUILD_NUMBER}"
+                def body = """
+                <h1>Pipeline aborted: ${env.JOB_NAME}</h1>
+                <p>La build <b>#${env.BUILD_NUMBER}</b> ha finalizado como aborted.</p>
+                <p><b>Artefacto/Commit:</b> ${IMAGE_TAG_SUFFIX}</p>
+                <p><a href='${env.BUILD_URL}'>Ver Build y Artefactos en Jenkins</a></p>
+                """
+                
+                emailext (
+                    subject: subject,
+                    body: body,
+                    to: 'sebashidmar@gmail.com', // Notificar solo a QA, por ejemplo
                     mimeType: 'text/html'
                 )
             }
