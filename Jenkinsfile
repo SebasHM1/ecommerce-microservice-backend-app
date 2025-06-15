@@ -439,6 +439,31 @@ spec:
             }
         }
         */
+
+                // ==========================================================
+        // ETAPA DE EMERGENCIA PARA DESBLOQUEAR TERRAFORM
+        // ==========================================================
+        stage('Force Unlock Terraform State (Emergency)') {
+            // Pon una condición para que solo se ejecute cuando lo necesites,
+            // por ejemplo, con un parámetro de pipeline.
+            // O simplemente añádela y quítala después de usarla.
+            steps {
+                script {
+                    // Copia el LOCK ID del mensaje de error
+                    def lockId = "105c3a84-4d68-e4d7-d962-9b1cf36e92fc" // <-- ¡Pega el ID de tu error aquí!
+                    
+                    echo "Intentando forzar el desbloqueo del estado de Terraform para el entorno 'stage'..."
+                    dir("terraform/stage") {
+                        // Primero, inicializamos terraform para que sepa dónde está el backend
+                        sh 'terraform init -input=false'
+                        // Luego, forzamos el desbloqueo con el ID del bloqueo
+                        sh "terraform force-unlock ${lockId}"
+                    }
+                    echo "¡Desbloqueo forzado completado! El siguiente despliegue debería funcionar."
+                }
+            }
+        }
+
         stage('Deploy to STAGING & Run E2E Tests') {
             when { 
                 
