@@ -457,7 +457,7 @@ spec:
                         // Primero, inicializamos terraform para que sepa dónde está el backend
                         sh 'terraform init -input=false'
                         // Luego, forzamos el desbloqueo con el ID del bloqueo
-                        sh "terraform force-unlock ${lockId}"
+                        sh "terraform force-unlock -force ${lockId}"
                     }
                     echo "¡Desbloqueo forzado completado! El siguiente despliegue debería funcionar."
                 }
