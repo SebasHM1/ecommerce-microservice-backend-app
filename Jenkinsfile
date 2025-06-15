@@ -413,7 +413,7 @@ spec:
                 steps {
                     script {
                         // Copia el LOCK ID del mensaje de error
-                        def lockId = "b1e63bed-c76a-0d92-38e0-d81a424f7ddd" // <-- ¡Pega el ID de tu error aquí!
+                        def lockId = "fe985fea-347e-15a0-cc19-14ce0fcac19f" // <-- ¡Pega el ID de tu error aquí!
                         
                         echo "Intentando forzar el desbloqueo del estado de Terraform para el entorno 'stage'..."
                         dir("terraform/stage") {
