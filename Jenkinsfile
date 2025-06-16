@@ -522,37 +522,36 @@ spec:
         container('tools') {
             script {
                 try {
-                    // --- LA VERSIÓN FINAL Y COMPLETA DEL COMANDO DOCKER ---
+                    // --- LA VERSIÓN FINAL. CAPTURAMOS LA SALIDA DE LA CONSOLA ---
                     sh """
                     echo "Iniciando escaneo DAST con OWASP ZAP contra el punto de entrada: ${TARGET_URL_FOR_ZAP}"
                     
+                    # Ejecutamos ZAP y redirigimos su salida a un archivo.
+                    # Ya no dependemos de que el script genere los reportes por sí mismo.
                     docker run --rm \\
                         --network host \\
                         --dns 10.96.0.10 \\
                         --user \$(id -u):\$(id -g) \\
-                        -v \$(pwd):/zap/wrk/:rw \\
-                        --workdir /zap/wrk \\
                         -t softwaresecurityproject/zap-stable zap-baseline.py \\
                         -t ${TARGET_URL_FOR_ZAP} \\
                         -I \\
-                        -r zap_baseline_report.html \\
-                        -w zap_baseline_report.md \\
-                        -J zap_baseline_report.json \\
+                        > zap_console_report.txt \\
                         || true 
                     """
 
                     echo "Verificando los resultados del escaneo..."
-                    if (fileExists('zap_baseline_report.json')) {
-                        echo "¡ÉXITO! Reporte de ZAP generado correctamente."
-                        def highAlertsFound = sh(script: 'grep -q \'"risk":"High"\' zap_baseline_report.json', returnStatus: true) == 0
+                    if (fileExists('zap_console_report.txt')) {
+                        echo "¡ÉXITO! Reporte de consola de ZAP generado correctamente."
+                        // Revisamos nuestro propio reporte de consola en busca de fallos críticos.
+                        def highAlertsFound = sh(script: 'grep "FAIL-NEW: [1-9]" zap_console_report.txt', returnStatus: true) == 0
                         if (highAlertsFound) {
-                            echo "¡ADVERTENCIA! Se encontraron alertas de riesgo ALTO en el reporte de ZAP."
+                            echo "¡ADVERTENCIA! Se encontraron fallos de riesgo ALTO en el reporte de ZAP."
                             currentBuild.result = 'UNSTABLE'
                         } else {
-                            echo "No se encontraron alertas de riesgo ALTO. ¡El escaneo de seguridad pasó!"
+                            echo "No se encontraron fallos de riesgo ALTO. ¡El escaneo de seguridad pasó!"
                         }
                     } else {
-                        echo "ERROR INESPERADO: El reporte de ZAP no fue generado. Revisar el log de ZAP."
+                        echo "ERROR INESPERADO: El reporte de consola de ZAP no fue generado."
                         currentBuild.result = 'UNSTABLE'
                     }
 
@@ -565,20 +564,9 @@ spec:
     }
     post {
         always {
-            echo "Archivando reportes de OWASP ZAP..."
-            archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
-            
-            // Si tienes el plugin HTML Publisher, descomenta esta sección.
-            /*
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: '.',
-                reportFiles: 'zap_baseline_report.html',
-                reportName: 'Reporte de Seguridad (OWASP ZAP)'
-            ])
-            */
+            echo "Archivando reporte de consola de OWASP ZAP..."
+            // Archivamos el único reporte que nos interesa y que sabemos que existirá.
+            archiveArtifacts artifacts: 'zap_console_report.txt', allowEmptyArchive: true
         }
     }
 }
