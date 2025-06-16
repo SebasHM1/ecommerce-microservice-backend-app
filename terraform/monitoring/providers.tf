@@ -13,16 +13,6 @@ terraform {
   }
 }
 
-# Configura el proveedor de Kubernetes para que use el contexto de Minikube
-provider "kubernetes" {
-  config_path    = "~/.kube/config"
-  config_context = "minikube"
-}
+provider "kubernetes" {}
 
-# Configura el proveedor de Helm
-provider "helm" {
-  kubernetes {
-    config_path    = "~/.kube/config"
-    config_context = "minikube"
-  }
-}
+provider "helm" {}
