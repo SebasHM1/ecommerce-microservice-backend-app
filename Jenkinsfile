@@ -505,7 +505,7 @@ spec:
                 }
             }
         }
-*/    
+  
     stage('Pruebas de Seguridad (DAST con ZAP)') {
     agent {
         kubernetes {
@@ -570,7 +570,7 @@ spec:
         }
     }
 }
-
+*/  
         stage('Create Semantic Version & Release') {
             when {
                 allOf {
