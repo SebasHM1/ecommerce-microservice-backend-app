@@ -436,13 +436,14 @@ spec:
         }
 
                 // ==================================================================
-        // ETAPA FINAL: VERSIONADO (CON CONFIGURACIÓN EXTERNA)
-        // ==================================================================
-                // ==================================================================
-        // ETAPA FINAL: VERSIONADO (CON DIAGNÓSTICO)
+        // ETAPA FINAL: VERSIONADO (ENFOQUE AGRESIVO)
         // ==================================================================
         stage('Create Semantic Version & Release') {
-            
+            when {
+                allOf {
+                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
@@ -452,28 +453,33 @@ spec:
                             return
                         }
 
-                        echo "Rama '${gitRef}' válida. Preparando entorno para versionado..."
+                        echo "Rama '${gitRef}' válida. Forzando alineación del entorno Git..."
                         
-                        // --- PASOS DE DIAGNÓSTICO Y CORRECCIÓN ---
+                        // --- ENFOQUE AGRESIVO ---
+                        // 1. Borrar cualquier rama 'develop' local antigua para evitar conflictos.
+                        // '|| true' es para que el comando no falle si la rama no existe.
+                        sh "git branch -D develop || true"
                         
-                        // 1. Asegurarnos de que estamos en la última versión de la rama
-                        sh "git checkout develop"
-                        sh "git pull origin develop"
+                        // 2. Crear una nueva rama local 'develop' que siga explícitamente a 'origin/develop'.
+                        // Esto elimina cualquier estado "detached HEAD".
+                        sh "git checkout -b develop origin/develop"
                         
-                        // 2. Listar archivos para verificar que .releaserc.json está presente
-                        echo "Verificando la presencia de .releaserc.json en el directorio actual:"
-                        sh "ls -la"
-                        
-                        // 3. Configurar git para el push
+                        // 3. Verificar que estamos en la rama correcta
+                        sh "git branch --show-current"
+
+                        // 4. Configurar git para el push
                         sh 'git config --global user.email "ci-bot@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI Bot"'
                         sh "git remote set-url origin https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        // 4. Ejecutar semantic-release
+                        // 5. Ejecutar semantic-release
                         echo "Iniciando semantic-release..."
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
-                            npx semantic-release
+                            # Forzar a semantic-release a ejecutarse en modo no-CI para que ignore
+                            # las variables de entorno del CI que podrían estar confundíendolo.
+                            # Y le pasamos la rama explícitamente.
+                            npx semantic-release --no-ci -b develop
                         """
                     }
                 }
