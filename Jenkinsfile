@@ -531,6 +531,7 @@ spec:
                         echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
                         
                         docker run --rm \\
+                            --network host \\
                             --user \$(id -u):\$(id -g) \\
                             -v \$(pwd):/zap/wrk/:rw \\
                             -t softwaresecurityproject/zap-stable zap-baseline.py \\
