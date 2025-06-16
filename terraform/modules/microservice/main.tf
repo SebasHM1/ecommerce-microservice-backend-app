@@ -11,7 +11,18 @@ resource "kubernetes_deployment" "app" {
     replicas = var.replicas
     selector { match_labels = { app = var.name } }
     template {
-      metadata { labels = { app = var.name } }
+      metadata { 
+        labels = { app = var.name } 
+
+        annotations = {
+          "prometheus.io/scrape" : "true",
+          
+          "prometheus.io/path" : "/actuator/prometheus",
+
+          "prometheus.io/port" : tostring(var.container_port) 
+        }  
+        
+      }
       spec {
         # --- INIT CONTAINERS DINÁMICOS ---
         dynamic "init_container" {
@@ -22,6 +33,8 @@ resource "kubernetes_deployment" "app" {
             command = init_container.value.command
           }
         }
+
+        
 
         container {
           image = var.image

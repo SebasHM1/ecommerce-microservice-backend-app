@@ -139,6 +139,7 @@ spec:
     
     // NUEVO: Parámetros para controlar la ejecución del pipeline.
     parameters {
+        booleanParam(name: 'DEPLOY_MONITORING_STACK', defaultValue: true, description: 'Desplegar o actualizar el stack de monitoreo (Prometheus & Grafana).')
         booleanParam(name: 'RUN_BUILD_AND_ANALYZE', defaultValue: true, description: 'Ejecutar fases de compilación, tests unitarios y análisis de SonarQube.')
         booleanParam(name: 'RUN_PACKAGE_AND_SCAN', defaultValue: true, description: 'Ejecutar fases para construir, subir y escanear imágenes Docker con Trivy.')
         booleanParam(name: 'RUN_DEPLOY_DEV', defaultValue: true, description: 'Ejecutar despliegue en el entorno de DEV.')
@@ -420,6 +421,23 @@ spec:
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================
 
+        stage('Deploy/Update Monitoring Stack') {
+            when {
+                expression { return params.DEPLOY_MONITORING_STACK }
+            }
+            steps {
+                script {
+                    echo "===================================================================="
+                    echo "==> Desplegando/Actualizando el stack de Prometheus y Grafana..."
+                    echo "===================================================================="
+                    dir("terraform/monitoring") {
+                        sh 'terraform init -input=false'
+                        sh 'terraform apply -auto-approve -input=false'
+                    }
+                }
+            }
+        }
+        
         stage('Deploy to DEV') {
             when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
