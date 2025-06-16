@@ -1,4 +1,3 @@
-
 server:
   servlet:
     context-path: /app
@@ -15,6 +14,71 @@ spring:
     - dev
 
 resilience4j:
+  retry:
+    instances:
+      user-service:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - java.util.concurrent.TimeoutException
+          - feign.FeignException
+          - feign.FeignException$InternalServerError
+          - feign.FeignException$BadGateway
+          - feign.FeignException$ServiceUnavailable
+          - feign.FeignException$GatewayTimeout
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.RetryableException
+          - java.net.ConnectException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+          - feign.FeignException$NotFound
+          - feign.FeignException$BadRequest      order-service:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - java.util.concurrent.TimeoutException
+          - feign.FeignException
+          - feign.FeignException$InternalServerError
+          - feign.FeignException$BadGateway
+          - feign.FeignException$ServiceUnavailable
+          - feign.FeignException$GatewayTimeout
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.RetryableException
+          - java.net.ConnectException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+          - feign.FeignException$NotFound
+          - feign.FeignException$BadRequest
+      product-service:
+        maxAttempts: 3
+        waitDuration: 1s
+        retryExceptions:
+          - java.util.concurrent.TimeoutException
+          - feign.FeignException
+          - feign.FeignException$InternalServerError
+          - feign.FeignException$BadGateway
+          - feign.FeignException$ServiceUnavailable
+          - feign.FeignException$GatewayTimeout
+          - feign.FeignException$Unauthorized
+          - feign.FeignException$Forbidden
+          - feign.RetryableException
+          - java.net.ConnectException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+          - feign.FeignException$NotFound
+          - feign.FeignException$BadRequest
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 3s
+        cancelRunningFuture: true      order-service:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+      product-service:
+        timeoutDuration: 4s
+        cancelRunningFuture: true
   circuitbreaker:
     instances:
       proxyService:
@@ -36,3 +100,10 @@ management:
   endpoint:
     health:
       show-details: always
+
+features:
+  user-advanced-analytics: true
+  smart-recommendations: false
+  enhanced-user-profiling: true
+  beta-dashboard: false
+  premium-insights: true
