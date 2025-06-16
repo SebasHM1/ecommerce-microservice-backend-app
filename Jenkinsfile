@@ -516,7 +516,7 @@ spec:
         API_GATEWAY_SERVICE_NAME = 'api-gateway'
         K8S_NAMESPACE = 'dev'
         API_GATEWAY_PORT = 8080 
-        TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
+        TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}/user-service/api/users"
     }
     steps {
         container('tools') {
@@ -570,8 +570,7 @@ spec:
             echo "Archivando reportes de OWASP ZAP..."
             archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
             
-            // Comentado para evitar errores si el plugin no está. Descomenta si lo instalas.
-            /*
+            
             publishHTML(target: [
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
@@ -580,7 +579,7 @@ spec:
                 reportFiles: 'zap_baseline_report.html',
                 reportName: 'Reporte de Seguridad (OWASP ZAP)'
             ])
-            */
+            
         }
     }
 }
