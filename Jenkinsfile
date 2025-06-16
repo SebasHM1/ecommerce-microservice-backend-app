@@ -435,27 +435,36 @@ spec:
             }
         }
 
+                // ==================================================================
+        // ETAPA FINAL: VERSIONADO (CON CONFIGURACIÓN EXTERNA)
+        // ==================================================================
         stage('Create Semantic Version & Release') {
+            when {
+                allOf {
+                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
                         def gitRef = env.GIT_BRANCH
                         if (gitRef == null || !gitRef.contains('develop')) {
-                            echo "El versionado solo se activa en la rama 'develop'. Rama actual: '${gitRef ?: 'indefinida'}'. Omitiendo."
+                            echo "El versionado solo se activa en la rama 'develop'. Omitiendo."
                             return
                         }
 
-                        echo "Rama '${gitRef}' detectada. Iniciando proceso de versionado semántico..."
+                        echo "Rama '${gitRef}' válida. Iniciando proceso de versionado semántico..."
                         
-                        sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
-                        sh 'git config --global user.name "Jenkins CI"'
+                        // Configura git con un usuario y la URL autenticada para el push
+                        sh 'git config --global user.email "ci-bot@tuempresa.com"'
+                        sh 'git config --global user.name "Jenkins CI Bot"'
+                        sh "git remote set-url origin https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
-                        
-                        // CORRECCIÓN: Pasamos la variable 'gitRef' directamente, sin limpiarla.
+                        // La llamada es ahora limpia y sin parámetros. 
+                        // La herramienta leerá el .releaserc.json automáticamente.
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
-                            npx semantic-release -r ${repoUrl} -b ${gitRef}
+                            npx semantic-release
                         """
                     }
                 }
