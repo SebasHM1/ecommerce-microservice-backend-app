@@ -517,11 +517,11 @@ spec:
                 spec:
                 containers:
                 - name: zap
-                    image: sebashm1/jenkins-tools-completa:jdk17
-                    command:
-                    - sleep
-                    args:
-                    - 99d
+                image: sebashm1/jenkins-tools-completa:jdk17
+                command:
+                - sleep
+                args:
+                - 99d
                 """
             }
         }
