@@ -438,12 +438,11 @@ spec:
                 // ==================================================================
         // ETAPA FINAL: VERSIONADO (CON CONFIGURACIÓN EXTERNA)
         // ==================================================================
+                // ==================================================================
+        // ETAPA FINAL: VERSIONADO (CON DIAGNÓSTICO)
+        // ==================================================================
         stage('Create Semantic Version & Release') {
-            when {
-                allOf {
-                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
+            
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
@@ -453,15 +452,25 @@ spec:
                             return
                         }
 
-                        echo "Rama '${gitRef}' válida. Iniciando proceso de versionado semántico..."
+                        echo "Rama '${gitRef}' válida. Preparando entorno para versionado..."
                         
-                        // Configura git con un usuario y la URL autenticada para el push
+                        // --- PASOS DE DIAGNÓSTICO Y CORRECCIÓN ---
+                        
+                        // 1. Asegurarnos de que estamos en la última versión de la rama
+                        sh "git checkout develop"
+                        sh "git pull origin develop"
+                        
+                        // 2. Listar archivos para verificar que .releaserc.json está presente
+                        echo "Verificando la presencia de .releaserc.json en el directorio actual:"
+                        sh "ls -la"
+                        
+                        // 3. Configurar git para el push
                         sh 'git config --global user.email "ci-bot@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI Bot"'
                         sh "git remote set-url origin https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        // La llamada es ahora limpia y sin parámetros. 
-                        // La herramienta leerá el .releaserc.json automáticamente.
+                        // 4. Ejecutar semantic-release
+                        echo "Iniciando semantic-release..."
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
                             npx semantic-release
