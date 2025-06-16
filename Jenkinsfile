@@ -511,18 +511,13 @@ spec:
             // Reutilizamos el mismo agente que tiene Docker
             kubernetes {
                 cloud 'kubernetes'
-                yaml """
-                apiVersion: v1
-                kind: Pod
-                spec:
-                    containers:
-                    - name: zap
-                    image: sebashm1/jenkins-tools-completa:jdk17
-                    command:
-                    - sleep
-                    args:
-                    - 99d
-                """
+                containerTemplate {
+                    name 'zap'
+                    image 'sebashm1/jenkins-tools-completa:jdk17'
+                    command 'sleep'
+                    args '99d'
+                    ttyEnabled true // Buena práctica para comandos de larga duración como sleep
+                }
             }
         }
         environment {
