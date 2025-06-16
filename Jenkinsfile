@@ -432,7 +432,7 @@ spec:
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
                     deployWithTerraform()
 
-                    sleep 120 // Esperamos 120 segundos para que los servicios se estabilicen
+                    //sleep 120 // Esperamos 120 segundos para que los servicios se estabilicen
                     //runEndToEndTests()
 
                 }
@@ -458,19 +458,16 @@ spec:
         }
     }
     environment {
-        // --- ¡AJUSTA ESTOS 3 VALORES! ---
-        API_GATEWAY_SERVICE_NAME = 'api-gateway' // El nombre de tu Service de K8s
-        K8S_NAMESPACE = 'dev' // El namespace de tu entorno de stage
-        API_GATEWAY_PORT = 8080 // El puerto de tu Service
+        API_GATEWAY_SERVICE_NAME = 'api-gateway' 
+        K8S_NAMESPACE = 'dev' 
+        API_GATEWAY_PORT = 8080 
         
-        // Esta variable se construye automáticamente y se pasa a Locust
         LOCUST_HOST_URL = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
     }
     steps {
         container('locust') {
             script {
                 try {
-                    // El comando locust usa la variable LOCUST_HOST_URL definida arriba
                     sh """
                     echo "Ejecutando pruebas de Locust contra el host: ${LOCUST_HOST_URL}"
                     
