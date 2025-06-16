@@ -510,14 +510,7 @@ spec:
         agent {
             // Reutilizamos el mismo agente que tiene Docker
             kubernetes {
-                cloud 'kubernetes'
-                containerTemplate {
-                    name 'zap'
-                    image 'sebashm1/jenkins-tools-completa:jdk17'
-                    command 'sleep'
-                    args '99d'
-                    ttyEnabled true // Buena práctica para comandos de larga duración como sleep
-                }
+            label 'default' 
             }
         }
         environment {
@@ -531,7 +524,7 @@ spec:
             TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
         }
         steps {
-            container('zap') {
+            container('tools') {
                 script {
                     try {
                         sh """
