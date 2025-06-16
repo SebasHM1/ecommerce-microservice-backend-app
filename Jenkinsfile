@@ -530,8 +530,8 @@ spec:
                         sh """
                         echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
                         
-                        # Ejecutamos el contenedor de ZAP. Montamos el workspace actual para poder sacar los reportes.
                         docker run --rm \\
+                            --user \$(id -u):\$(id -g) \\
                             -v \$(pwd):/zap/wrk/:rw \\
                             -t softwaresecurityproject/zap-stable zap-baseline.py \\
                             -t ${TARGET_URL_FOR_ZAP} \\
