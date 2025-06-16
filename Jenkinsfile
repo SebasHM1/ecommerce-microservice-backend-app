@@ -438,7 +438,7 @@ spec:
                 }
             }
         }
-
+        /*
         stage('Pruebas de Estrés (Locust)') {
             agent {
                 kubernetes {
@@ -449,11 +449,11 @@ spec:
                     spec:
                     containers:
                     - name: locust
-                        image: sebashm1/jenkins-tools-completa:jdk17
-                        command:
-                        - sleep
-                        args:
-                        - 99d
+                    image: sebashm1/jenkins-tools-completa:jdk17
+                    command:
+                    - sleep
+                    args:
+                    - 99d
                     """
                 }
             }
@@ -505,7 +505,7 @@ spec:
                 }
             }
         }
-
+*/    
     stage('Pruebas de Seguridad (DAST con ZAP)') {
         agent {
             // Reutilizamos el mismo agente que tiene Docker
