@@ -10,8 +10,5 @@ terraform {
     # Usaremos 'default' para simplicidad, pero podría ser 'jenkins'.
     namespace = "default"
     
-    # IMPORTANTE: Le dice a Terraform que se está ejecutando dentro de un pod
-    # y que debe usar las credenciales inyectadas, no un archivo kubeconfig.
-    in_cluster = true 
   }
 }
