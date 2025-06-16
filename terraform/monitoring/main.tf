@@ -1,13 +1,11 @@
-# terraform/monitoring/main.tf
+# terraform/monitoring/main.tf (VERSIÓN FINAL)
 
-# 1. Crear un namespace dedicado para las herramientas de monitoreo
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = "monitoring"
   }
 }
 
-# 2. Desplegar Prometheus usando el chart de Helm oficial
 resource "helm_release" "prometheus" {
   name       = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
@@ -17,36 +15,22 @@ resource "helm_release" "prometheus" {
 
   values = [
     yamlencode({
-      # Deshabilitar componentes que no necesitamos para una demo simple
       alertmanager = {
         enabled = false
       }
       pushgateway = {
         enabled = false
       }
-
-      # ======================================================================
-      # INICIO DE LA ACTUALIZACIÓN
-      # Deshabilitamos componentes extra para evitar errores de permisos
-      # y mantener el despliegue lo más simple posible.
-      # ======================================================================
       kubeStateMetrics = {
         enabled = false
       }
       nodeExporter = {
-        enabled = false # <-- Esto evita el error de permisos para "daemonsets"
+        enabled = false
       }
-      # ======================================================================
-      # FIN DE LA ACTUALIZACIÓN
-      # ======================================================================
-
-      # Configuración del servidor Prometheus
       server = {
-        # ¡NO usar almacenamiento persistente!
         persistentVolume = {
           enabled = false
         }
-        # Service Discovery para encontrar tus microservicios
         extraScrapeConfigs = <<-EOT
         - job_name: 'kubernetes-pods'
           kubernetes_sd_configs:
@@ -70,13 +54,17 @@ resource "helm_release" "prometheus" {
   ]
 }
 
-# 3. Desplegar Grafana usando el chart de Helm oficial
 resource "helm_release" "grafana" {
   name       = "grafana"
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   namespace  = kubernetes_namespace.monitoring.metadata[0].name
-  version    = "6.29.3"
+
+  # ==============================================================
+  # ACTUALIZACIÓN CRÍTICA: Usamos una versión más nueva del chart
+  # que ya no intenta crear PodSecurityPolicies.
+  # ==============================================================
+  version    = "7.3.11"
 
   values = [
     yamlencode({
@@ -84,13 +72,9 @@ resource "helm_release" "grafana" {
         enabled = false
       }
       adminPassword = "admin-password"
+      
+      # Ya no necesitamos deshabilitar PSP porque este chart no lo usa.
 
-      # Corrección para el error "no matches for kind PodSecurityPolicy".
-      podSecurityPolicy = {
-        enabled = false
-      }
-
-      # Pre-configurar el Datasource de Prometheus
       datasources = {
         "datasources.yaml" = {
           apiVersion = 1
@@ -106,7 +90,6 @@ resource "helm_release" "grafana" {
         }
       }
 
-      # Cargar el dashboard de Spring Boot automáticamente
       sidecar = {
         dashboards = {
           enabled = true
@@ -117,7 +100,6 @@ resource "helm_release" "grafana" {
   ]
 }
 
-# 4. Crear el ConfigMap con el JSON del Dashboard
 resource "kubernetes_config_map" "spring_boot_dashboard" {
   metadata {
     name      = "spring-boot-dashboard"
