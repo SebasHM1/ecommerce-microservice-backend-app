@@ -533,7 +533,7 @@ spec:
                         # Ejecutamos el contenedor de ZAP. Montamos el workspace actual para poder sacar los reportes.
                         docker run --rm \\
                             -v \$(pwd):/zap/wrk/:rw \\
-                            -t owasp/zap2docker-stable zap-baseline.py \\
+                            -t softwaresecurityproject/zap-stable zap-baseline.py \\
                             -t ${TARGET_URL_FOR_ZAP} \\
                             -r zap_baseline_report.html \\
                             -w zap_baseline_report.md \\
