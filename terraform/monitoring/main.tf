@@ -13,9 +13,8 @@ resource "helm_release" "prometheus" {
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "prometheus"
   namespace  = kubernetes_namespace.monitoring.metadata[0].name
-  version    = "15.10.0" # Usar una versión específica para consistencia
+  version    = "15.10.0"
 
-  # IMPORTANTE: Configuración para que funcione simple en Minikube
   values = [
     yamlencode({
       # Deshabilitar componentes que no necesitamos para una demo simple
@@ -25,16 +24,29 @@ resource "helm_release" "prometheus" {
       pushgateway = {
         enabled = false
       }
+
+      # ======================================================================
+      # INICIO DE LA ACTUALIZACIÓN
+      # Deshabilitamos componentes extra para evitar errores de permisos
+      # y mantener el despliegue lo más simple posible.
+      # ======================================================================
+      kubeStateMetrics = {
+        enabled = false
+      }
+      nodeExporter = {
+        enabled = false # <-- Esto evita el error de permisos para "daemonsets"
+      }
+      # ======================================================================
+      # FIN DE LA ACTUALIZACIÓN
+      # ======================================================================
+
       # Configuración del servidor Prometheus
       server = {
-        # ¡NO usar almacenamiento persistente! Ideal para Minikube.
-        # Los datos se perderán si el pod se reinicia.
+        # ¡NO usar almacenamiento persistente!
         persistentVolume = {
           enabled = false
         }
-        # AÑADIMOS LA MAGIA: Service Discovery de Kubernetes
-        # Prometheus buscará automáticamente cualquier pod en CUALQUIER namespace
-        # que tenga la anotación 'prometheus.io/scrape: "true"'.
+        # Service Discovery para encontrar tus microservicios
         extraScrapeConfigs = <<-EOT
         - job_name: 'kubernetes-pods'
           kubernetes_sd_configs:
@@ -64,73 +76,57 @@ resource "helm_release" "grafana" {
   repository = "https://grafana.github.io/helm-charts"
   chart      = "grafana"
   namespace  = kubernetes_namespace.monitoring.metadata[0].name
-  version    = "6.29.3" # Usar una versión específica
+  version    = "6.29.3"
 
   values = [
     yamlencode({
-      # ¡NO usar almacenamiento persistente!
       persistence = {
         enabled = false
       }
-      # Establecer la contraseña de admin (la default es aleatoria)
-      # Usuario: admin, Contraseña: admin-password
       adminPassword = "admin-password"
 
-      # ======================================================================
-      # INICIO DE LA ACTUALIZACIÓN
       # Corrección para el error "no matches for kind PodSecurityPolicy".
-      # Las versiones modernas de Kubernetes ya no usan PSPs, por lo que
-      # debemos decirle al chart de Helm que no intente crear una.
-      # ======================================================================
       podSecurityPolicy = {
         enabled = false
       }
-      # ======================================================================
-      # FIN DE LA ACTUALIZACIÓN
-      # ======================================================================
 
-      # AÑADIMOS LA MAGIA: Pre-configurar el Datasource de Prometheus
+      # Pre-configurar el Datasource de Prometheus
       datasources = {
         "datasources.yaml" = {
           apiVersion = 1
           datasources = [
             {
-              name = "Prometheus-Local"
-              type = "prometheus"
-              # URL interna del servicio de Prometheus que desplegamos antes
-              url = "http://prometheus-server.${kubernetes_namespace.monitoring.metadata[0].name}.svc.cluster.local"
-              access = "proxy"
+              name      = "Prometheus-Local"
+              type      = "prometheus"
+              url       = "http://prometheus-server.${kubernetes_namespace.monitoring.metadata[0].name}.svc.cluster.local"
+              access    = "proxy"
               isDefault = true
             }
           ]
         }
       }
 
-      # AÑADIMOS MÁS MAGIA: Cargar un dashboard para Spring Boot automáticamente
-      # Habilitamos el sidecar que busca dashboards en ConfigMaps
+      # Cargar el dashboard de Spring Boot automáticamente
       sidecar = {
         dashboards = {
           enabled = true
-          label = "grafana_dashboard" # Buscará ConfigMaps con esta etiqueta
+          label   = "grafana_dashboard"
         }
       }
     })
   ]
 }
 
-# 4. Crear el ConfigMap con el JSON del Dashboard de Spring Boot
+# 4. Crear el ConfigMap con el JSON del Dashboard
 resource "kubernetes_config_map" "spring_boot_dashboard" {
   metadata {
     name      = "spring-boot-dashboard"
     namespace = kubernetes_namespace.monitoring.metadata[0].name
     labels = {
-      # Esta etiqueta debe coincidir con la que busca el sidecar de Grafana
       grafana_dashboard = "1"
     }
   }
 
-  # El contenido del dashboard va aquí.
-  # Usaremos un archivo externo para mantenerlo limpio.
   data = {
     "spring-boot-dashboard.json" = file("${path.module}/dashboard-spring-boot.json")
   }
