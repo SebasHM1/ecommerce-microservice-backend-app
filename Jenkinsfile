@@ -474,10 +474,7 @@ spec:
                             
                             # Token de GitHub
                             export GITHUB_TOKEN=${GIT_TOKEN}
-
-                            # Ejecutar sin parámetros extra. Dejar que lea el .releaserc.json
-                            # El --dry-run es para probar. Cuando funcione, quítalo.
-                            npx semantic-release --dry-run
+                            npx semantic-release
                         """
                     }
                 }
