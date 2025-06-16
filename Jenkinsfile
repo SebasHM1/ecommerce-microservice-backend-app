@@ -440,71 +440,164 @@ spec:
         }
 
         stage('Pruebas de Estrés (Locust)') {
-    agent {
-        kubernetes {
-            cloud 'kubernetes'
-            yaml """
-            apiVersion: v1
-            kind: Pod
-            spec:
-              containers:
-              - name: locust
-                image: sebashm1/jenkins-tools-completa:jdk17
-                command:
-                - sleep
-                args:
-                - 99d
-            """
-        }
-    }
-    environment {
-        API_GATEWAY_SERVICE_NAME = 'api-gateway' 
-        K8S_NAMESPACE = 'dev' 
-        API_GATEWAY_PORT = 8080 
-        
-        LOCUST_HOST_URL = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
-    }
-    steps {
-        container('locust') {
-            script {
-                try {
-                    sh """
-                    echo "Ejecutando pruebas de Locust contra el host: ${LOCUST_HOST_URL}"
-                    
-                    locust -f locustfile.py \\
-                           --headless \\
-                           --users 50 \\
-                           --spawn-rate 10 \\
-                           --run-time 1m \\
-                           --host ${LOCUST_HOST_URL} \\
-                           --csv locust_report \\
-                           --html locust_report.html \\
-                           --exit-code-on-error 1
+            agent {
+                kubernetes {
+                    cloud 'kubernetes'
+                    yaml """
+                    apiVersion: v1
+                    kind: Pod
+                    spec:
+                    containers:
+                    - name: locust
+                        image: sebashm1/jenkins-tools-completa:jdk17
+                        command:
+                        - sleep
+                        args:
+                        - 99d
                     """
-                } catch (e) {
-                    echo "Las pruebas de Locust terminaron con errores (lo cual puede ser esperado)."
-                    // Marcamos el build como INESTABLE en lugar de FALLIDO
-                    currentBuild.result = 'UNSTABLE'
+                }
+            }
+            environment {
+                API_GATEWAY_SERVICE_NAME = 'api-gateway' 
+                K8S_NAMESPACE = 'dev' 
+                API_GATEWAY_PORT = 8080 
+                
+                LOCUST_HOST_URL = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
+            }
+            steps {
+                container('locust') {
+                    script {
+                        try {
+                            sh """
+                            echo "Ejecutando pruebas de Locust contra el host: ${LOCUST_HOST_URL}"
+                            
+                            locust -f locustfile.py \\
+                                --headless \\
+                                --users 50 \\
+                                --spawn-rate 10 \\
+                                --run-time 1m \\
+                                --host ${LOCUST_HOST_URL} \\
+                                --csv locust_report \\
+                                --html locust_report.html \\
+                                --exit-code-on-error 1
+                            """
+                        } catch (e) {
+                            echo "Las pruebas de Locust terminaron con errores (lo cual puede ser esperado)."
+                            // Marcamos el build como INESTABLE en lugar de FALLIDO
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Archivando reportes de Locust..."
+                    archiveArtifacts artifacts: 'locust_report.html, locust_report_stats.csv', allowEmptyArchive: true
+                    
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'locust_report.html',
+                        reportName: 'Reporte de Rendimiento (Locust)'
+                    ])
                 }
             }
         }
-    }
-    post {
-        always {
-            echo "Archivando reportes de Locust..."
-            archiveArtifacts artifacts: 'locust_report.html, locust_report_stats.csv', allowEmptyArchive: true
+
+    stage('Pruebas de Seguridad (DAST con ZAP)') {
+        agent {
+            // Reutilizamos el mismo agente que tiene Docker
+            kubernetes {
+                cloud 'kubernetes'
+                yaml """
+                apiVersion: v1
+                kind: Pod
+                spec:
+                containers:
+                - name: zap
+                    image: sebashm1/jenkins-tools-completa:jdk17
+                    command:
+                    - sleep
+                    args:
+                    - 99d
+                """
+            }
+        }
+        environment {
+            // --- ¡USAREMOS LAS MISMAS VARIABLES QUE EN LOCUST! ---
+            // Asegúrate de que estos valores son correctos para tu entorno de stage.
+            API_GATEWAY_SERVICE_NAME = 'api-gateway'
+            K8S_NAMESPACE = 'dev'
+            API_GATEWAY_PORT = 8080 
             
-            publishHTML(target: [
-                allowMissing: true,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: '.',
-                reportFiles: 'locust_report.html',
-                reportName: 'Reporte de Rendimiento (Locust)'
-            ])
+            // Construimos la URL objetivo para ZAP
+            TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
+        }
+        steps {
+            container('zap') {
+                script {
+                    try {
+                        sh """
+                        echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
+                        
+                        # Ejecutamos el contenedor de ZAP. Montamos el workspace actual para poder sacar los reportes.
+                        docker run --rm \\
+                            -v \$(pwd):/zap/wrk/:rw \\
+                            -t owasp/zap2docker-stable zap-baseline.py \\
+                            -t ${TARGET_URL_FOR_ZAP} \\
+                            -r zap_baseline_report.html \\
+                            -w zap_baseline_report.md \\
+                            -J zap_baseline_report.json \\
+                            || true 
+                            
+                        # El '|| true' anterior asegura que este paso siempre se ejecute
+                        # para poder revisar los resultados y decidir si fallar el build.
+                        
+                        # (Opcional) Leer el JSON para tomar decisiones
+                        def report = readJSON file: 'zap_baseline_report.json'
+                        def highAlerts = report.site.alerts.findAll { it.risk == 'High' }.size()
+                        def mediumAlerts = report.site.alerts.findAll { it.risk == 'Medium' }.size()
+
+                        echo "Escaneo de ZAP completado. Resultados:"
+                        echo "Alertas Altas: \${highAlerts}"
+                        echo "Alertas Medias: \${mediumAlerts}"
+                        
+                        if (highAlerts > 0) {
+                            // Si quieres que el build falle si hay alertas altas, usa 'error'
+                            // error("Fallo del build: Se encontraron \${highAlerts} alertas de riesgo ALTO.")
+                            
+                            // Para un entorno académico, es mejor marcarlo como inestable.
+                            echo "ADVERTENCIA: Se encontraron \${highAlerts} alertas de riesgo ALTO."
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                        """
+                    } catch (e) {
+                        echo "Falló la ejecución de la etapa de ZAP: ${e.message}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+        post {
+            always {
+                echo "Archivando reportes de OWASP ZAP..."
+                archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
+                
+                // Reutilizamos el mismo publicador HTML.
+                // Recuerda instalar el plugin 'HTML Publisher' en Jenkins.
+                publishHTML(target: [
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: '.',
+                    reportFiles: 'zap_baseline_report.html',
+                    reportName: 'Reporte de Seguridad (OWASP ZAP)'
+                ])
+            }
         }
     }
-}
 
         stage('Create Semantic Version & Release') {
             when {
