@@ -66,3 +66,9 @@ variable "health_check_path" {
   type        = string
   default     = "/actuator/health"
 }
+
+variable "actuator_path" {
+  description = "The full path to the prometheus actuator endpoint."
+  type        = string
+  default     = "/actuator/prometheus" # Valor por defecto para los que no tienen context-path
+}

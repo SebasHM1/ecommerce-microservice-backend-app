@@ -437,7 +437,7 @@ spec:
                 }
             }
         }
-        
+
         stage('Deploy to DEV') {
             when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
@@ -450,13 +450,13 @@ spec:
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
                     deployWithTerraform()
 
-                    //sleep 120 // Esperamos 120 segundos para que los servicios se estabilicen
-                    //runEndToEndTests()
+                    //sleep 120 
+                    runEndToEndTests()
 
                 }
             }
         }
-        /*
+        
         stage('Pruebas de Estrés (Locust)') {
             agent {
                 kubernetes {
@@ -588,7 +588,7 @@ spec:
         }
     }
 }
-*/  
+
         stage('Create Semantic Version & Release') {
             when {
                 allOf {
