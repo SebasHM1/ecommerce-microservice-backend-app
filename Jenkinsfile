@@ -166,6 +166,44 @@ spec:
 
     stages {
 
+            stage('Checkout Source Code') {
+            steps {
+                script {
+                    // Limpiar el subdirectorio de código fuente si existe de una ejecución anterior
+                    deleteDir()
+                    
+                    // Hacemos el checkout manualmente en un subdirectorio 'source'
+                    // con la opción --tags para asegurar que se obtienen todas las tags.
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/develop']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [$class: 'CloneOption', depth: 0, noTags: false, shallow: false, timeout: 20],
+                            [$class: 'PruneStaleBranch']
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [[url: 'https://github.com/SebasHM1/ecommerce-microservice-backend-app.git']]
+                    ])
+                    
+                    // Ahora, todo el resto del pipeline se ejecuta dentro de este directorio
+                    dir('source') {
+                        // Mover el resto de tus etapas aquí dentro
+                        stage('Prepare Java TrustStore') {
+                            // ...
+                        }
+                        stage('Initialize & Configure Build') {
+                            // ...
+                        }
+                        // ... TODAS TUS OTRAS ETAPAS ...
+                        stage('Create Semantic Version & Release') {
+                            // ...
+                        }
+                    }
+                }
+            }
+        }
+
             stage('Prepare Java TrustStore') {
             steps {
                 // FORZAR EJECUCIÓN EN EL CONTENEDOR 'tools'
