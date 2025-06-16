@@ -435,39 +435,32 @@ spec:
             }
         }
 
-        stage('Create Semantic Version & Release') {
+                stage('Create Semantic Version & Release') {
+            when {
+                allOf {
+                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
-                        // ==========================================================
-                        // OBTENER EL NOMBRE DE LA RAMA MANUALMENTE
-                        // ==========================================================
-                        // 'git branch --show-current' es el comando moderno y limpio para esto.
-                        def currentBranch = sh(script: 'git branch --show-current', returnStdout: true).trim()
-                        
-                        echo "Rama detectada: '${currentBranch}'"
-                        
-                        // ==========================================================
-                        // VERIFICACIÓN MANUAL DE LA RAMA
-                        // ==========================================================
-                        if (currentBranch != 'develop') {
-                            echo "El versionado solo se activa en la rama 'develop'. Omitiendo etapa."
-                            return // Salimos de la etapa si no es la rama correcta
+                        def gitRef = env.GIT_BRANCH
+                        if (gitRef == null || !gitRef.contains('develop')) {
+                            echo "El versionado solo se activa en la rama 'develop'. Rama actual: '${gitRef ?: 'indefinida'}'. Omitiendo."
+                            return
                         }
 
-                        echo "Iniciando proceso de versionado semántico en la rama '${currentBranch}'..."
+                        echo "Rama '${gitRef}' detectada. Iniciando proceso de versionado semántico..."
                         
                         sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI"'
                         
                         def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        // Usamos la variable 'currentBranch' que obtuvimos manualmente
+                        // CORRECCIÓN: Pasamos la variable 'gitRef' directamente, sin limpiarla.
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
-                            
-                            # Usamos la variable de Groovy inyectada en el script de shell
-                            npx semantic-release -r ${repoUrl} -b ${currentBranch}
+                            npx semantic-release -r ${repoUrl} -b ${gitRef}
                         """
                     }
                 }
