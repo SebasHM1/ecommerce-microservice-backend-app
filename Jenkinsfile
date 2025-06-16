@@ -531,11 +531,12 @@ spec:
                         --dns 10.96.0.10 \\
                         --user \$(id -u):\$(id -g) \\
                         -v \$(pwd):/zap/wrk/:rw \\
+                        --workdir /zap/wrk \\
                         -t softwaresecurityproject/zap-stable zap-baseline.py \\
                         -t ${TARGET_URL_FOR_ZAP} \\
-                        -r /zap/wrk/zap_baseline_report.html \\
-                        -w /zap/wrk/zap_baseline_report.md \\
-                        -J /zap/wrk/zap_baseline_report.json \\
+                        -r zap_baseline_report.html \\
+                        -w zap_baseline_report.md \\
+                        -J zap_baseline_report.json \\
                         || true 
                     """
 
