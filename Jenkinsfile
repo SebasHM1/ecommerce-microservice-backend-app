@@ -435,38 +435,54 @@ spec:
             }
         }
 
+                // ==================================================================
+        // ETAPA FINAL: VERSIONADO Y RELEASE AUTOMÁTICA (VERSIÓN FINAL)
+        // ==================================================================
         stage('Create Semantic Version & Release') {
+            when {
+                allOf {
+                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
+                }
+            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
                         // ==========================================================
-                        // OBTENER EL NOMBRE DE LA RAMA MANUALMENTE
+                        // OBTENER LA RAMA USANDO LA VARIABLE DE ENTORNO 'GIT_BRANCH'
                         // ==========================================================
-                        // 'git branch --show-current' es el comando moderno y limpio para esto.
-                        def currentBranch = sh(script: 'git branch --show-current', returnStdout: true).trim()
+                        // env.GIT_BRANCH nos da algo como 'origin/develop'. Necesitamos limpiarlo.
+                        def gitRef = env.GIT_BRANCH
+                        if (gitRef == null || gitRef.trim().isEmpty()) {
+                            error("ERROR: La variable de entorno GIT_BRANCH no está definida. No se puede determinar la rama.")
+                        }
                         
-                        echo "Rama detectada: '${currentBranch}'"
+                        // Eliminar el prefijo 'origin/' para obtener el nombre limpio de la rama
+                        def currentBranch = gitRef.split('/').drop(1).join('/')
+                        
+                        echo "Referencia de Git detectada (GIT_BRANCH): '${gitRef}'"
+                        echo "Nombre de rama limpio: '${currentBranch}'"
                         
                         // ==========================================================
                         // VERIFICACIÓN MANUAL DE LA RAMA
                         // ==========================================================
                         if (currentBranch != 'develop') {
                             echo "El versionado solo se activa en la rama 'develop'. Omitiendo etapa."
-                            return // Salimos de la etapa si no es la rama correcta
+                            return
                         }
 
                         echo "Iniciando proceso de versionado semántico en la rama '${currentBranch}'..."
+                        
+                        // Antes de hacer push, es una buena práctica hacer checkout explícito a la rama.
+                        // Esto saca a Git del estado "detached HEAD" y lo pone sobre la rama.
+                        sh "git checkout ${currentBranch}"
                         
                         sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI"'
                         
                         def repoUrl = "https://_:${GIT_TOKEN}@github.com/sebashm1/ecommerce-microservice-backend-app.git"
                         
-                        // Usamos la variable 'currentBranch' que obtuvimos manualmente
                         sh """
                             export GITHUB_TOKEN=${GIT_TOKEN}
-                            
-                            # Usamos la variable de Groovy inyectada en el script de shell
                             npx semantic-release -r ${repoUrl} -b ${currentBranch}
                         """
                     }
