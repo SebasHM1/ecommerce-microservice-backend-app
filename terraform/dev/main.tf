@@ -94,6 +94,7 @@ module "cloud-config" {
 # ==============================================================================
 module "service-discovery" {
   source = "../modules/microservice"
+  depends_on = [kubernetes_deployment.zipkin]
 
   name           = "service-discovery"
   namespace      = var.k8s_namespace # Usar la variable de namespace
@@ -134,7 +135,7 @@ locals {
 # 3.1: User Service
 module "user-service" {
   source = "../modules/microservice"
-  depends_on = [module.service-discovery]
+  depends_on = [module.cloud-config]
 
   name           = "user-service"
   namespace      = var.k8s_namespace
@@ -244,12 +245,3 @@ module "api-gateway" {
     { "EUREKA_INSTANCE" = "api-gateway" }
   )
 }
-
-# Continúa con los demás servicios como proxy-client, favourite-service, etc.,
-# siguiendo el mismo patrón. Por ejemplo:
-
-# module "proxy-client" {
-#   ...
-#   image = var.service_images["proxy"]
-#   ...
-# }
