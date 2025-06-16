@@ -17,7 +17,7 @@ resource "kubernetes_deployment" "app" {
         annotations = {
           "prometheus.io/scrape" : "true",
           
-          "prometheus.io/path" : "var.actuator_path",
+          "prometheus.io/path" : var.actuator_path,
 
           "prometheus.io/port" : tostring(var.container_port) 
         }  

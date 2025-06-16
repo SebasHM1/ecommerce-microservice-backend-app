@@ -154,7 +154,7 @@ spec:
         K8S_NAMESPACE = "dev" 
         SPRING_ACTIVE_PROFILE_APP = "dev"
         TERRAFORM_ENV_DIR = "dev"
-        RUN_E2E_TESTS = "false"
+        RUN_E2E_TESTS = "true"
         IMAGE_TAG_SUFFIX = "" 
         MAVEN_PROFILES = "-Prun-its" 
         //TERRAFORM_SERVICE_IMAGES_VAR = ""
@@ -461,18 +461,18 @@ spec:
             agent {
                 kubernetes {
                     cloud 'kubernetes'
-                    yaml """
-                    apiVersion: v1
-                    kind: Pod
-                    spec:
-                    containers:
-                    - name: locust
-                    image: sebashm1/jenkins-tools-completa:jdk17
-                    command:
-                    - sleep
-                    args:
-                    - 99d
-                    """
+            yaml """
+            apiVersion: v1
+            kind: Pod
+            spec:
+              containers:
+              - name: locust
+                image: sebashm1/jenkins-tools-completa:jdk17
+                command:
+                - sleep
+                args:
+                - 99d
+            """
                 }
             }
             environment {
