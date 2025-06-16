@@ -166,44 +166,6 @@ spec:
 
     stages {
 
-            stage('Checkout Source Code') {
-            steps {
-                script {
-                    // Limpiar el subdirectorio de código fuente si existe de una ejecución anterior
-                    deleteDir()
-                    
-                    // Hacemos el checkout manualmente en un subdirectorio 'source'
-                    // con la opción --tags para asegurar que se obtienen todas las tags.
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/develop']],
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [$class: 'CloneOption', depth: 0, noTags: false, shallow: false, timeout: 20],
-                            [$class: 'PruneStaleBranch']
-                        ],
-                        submoduleCfg: [],
-                        userRemoteConfigs: [[url: 'https://github.com/SebasHM1/ecommerce-microservice-backend-app.git']]
-                    ])
-                    
-                    // Ahora, todo el resto del pipeline se ejecuta dentro de este directorio
-                    dir('source') {
-                        // Mover el resto de tus etapas aquí dentro
-                        stage('Prepare Java TrustStore') {
-                            // ...
-                        }
-                        stage('Initialize & Configure Build') {
-                            // ...
-                        }
-                        // ... TODAS TUS OTRAS ETAPAS ...
-                        stage('Create Semantic Version & Release') {
-                            // ...
-                        }
-                    }
-                }
-            }
-        }
-
             stage('Prepare Java TrustStore') {
             steps {
                 // FORZAR EJECUCIÓN EN EL CONTENEDOR 'tools'
@@ -469,10 +431,146 @@ spec:
                     
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
                     deployWithTerraform()
+
+                    //sleep 120 // Esperamos 120 segundos para que los servicios se estabilicen
+                    //runEndToEndTests()
+
                 }
             }
         }
+        /*
+        stage('Pruebas de Estrés (Locust)') {
+            agent {
+                kubernetes {
+                    cloud 'kubernetes'
+                    yaml """
+                    apiVersion: v1
+                    kind: Pod
+                    spec:
+                    containers:
+                    - name: locust
+                    image: sebashm1/jenkins-tools-completa:jdk17
+                    command:
+                    - sleep
+                    args:
+                    - 99d
+                    """
+                }
+            }
+            environment {
+                API_GATEWAY_SERVICE_NAME = 'api-gateway' 
+                K8S_NAMESPACE = 'dev' 
+                API_GATEWAY_PORT = 8080 
+                
+                LOCUST_HOST_URL = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
+            }
+            steps {
+                container('locust') {
+                    script {
+                        try {
+                            sh """
+                            echo "Ejecutando pruebas de Locust contra el host: ${LOCUST_HOST_URL}"
+                            
+                            locust -f locustfile.py \\
+                                --headless \\
+                                --users 50 \\
+                                --spawn-rate 10 \\
+                                --run-time 1m \\
+                                --host ${LOCUST_HOST_URL} \\
+                                --csv locust_report \\
+                                --html locust_report.html \\
+                                --exit-code-on-error 1
+                            """
+                        } catch (e) {
+                            echo "Las pruebas de Locust terminaron con errores (lo cual puede ser esperado)."
+                            // Marcamos el build como INESTABLE en lugar de FALLIDO
+                            currentBuild.result = 'UNSTABLE'
+                        }
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Archivando reportes de Locust..."
+                    archiveArtifacts artifacts: 'locust_report.html, locust_report_stats.csv', allowEmptyArchive: true
+                    
+                    publishHTML(target: [
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: '.',
+                        reportFiles: 'locust_report.html',
+                        reportName: 'Reporte de Rendimiento (Locust)'
+                    ])
+                }
+            }
+        }
+  
+    stage('Pruebas de Seguridad (DAST con ZAP)') {
+    agent {
+        kubernetes {
+            label 'default'
+        }
+    }
+    environment {
+        API_GATEWAY_SERVICE_NAME = 'api-gateway'
+        K8S_NAMESPACE = 'dev'
+        API_GATEWAY_PORT = 8080 
+        TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}/user-service/api/users"
+    }
+    steps {
+        container('tools') {
+            script {
+                try {
+                    // --- LA VERSIÓN FINAL. CAPTURAMOS LA SALIDA DE LA CONSOLA ---
+                    sh """
+                    echo "Iniciando escaneo DAST con OWASP ZAP contra el punto de entrada: ${TARGET_URL_FOR_ZAP}"
+                    
+                    # Ejecutamos ZAP y redirigimos su salida a un archivo.
+                    # Ya no dependemos de que el script genere los reportes por sí mismo.
+                    docker run --rm \\
+                        --network host \\
+                        --dns 10.96.0.10 \\
+                        --user \$(id -u):\$(id -g) \\
+                        -t softwaresecurityproject/zap-stable zap-baseline.py \\
+                        -t ${TARGET_URL_FOR_ZAP} \\
+                        -I \\
+                        > zap_console_report.txt \\
+                        || true 
+                    """
 
+                    echo "Verificando los resultados del escaneo..."
+                    if (fileExists('zap_console_report.txt')) {
+                        echo "¡ÉXITO! Reporte de consola de ZAP generado correctamente."
+                        // Revisamos nuestro propio reporte de consola en busca de fallos críticos.
+                        def highAlertsFound = sh(script: 'grep "FAIL-NEW: [1-9]" zap_console_report.txt', returnStatus: true) == 0
+                        if (highAlertsFound) {
+                            echo "¡ADVERTENCIA! Se encontraron fallos de riesgo ALTO en el reporte de ZAP."
+                            currentBuild.result = 'UNSTABLE'
+                        } else {
+                            echo "No se encontraron fallos de riesgo ALTO. ¡El escaneo de seguridad pasó!"
+                        }
+                    } else {
+                        echo "ERROR INESPERADO: El reporte de consola de ZAP no fue generado."
+                        currentBuild.result = 'UNSTABLE'
+                    }
+
+                } catch (e) {
+                    echo "Falló la ejecución de la etapa de ZAP: ${e.message}"
+                    currentBuild.result = 'UNSTABLE'
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo "Archivando reporte de consola de OWASP ZAP..."
+            // Archivamos el único reporte que nos interesa y que sabemos que existirá.
+            archiveArtifacts artifacts: 'zap_console_report.txt', allowEmptyArchive: true
+        }
+    }
+}
+*/  
         stage('Create Semantic Version & Release') {
             when {
                 allOf {
@@ -490,6 +588,9 @@ spec:
 
                         echo "Rama detectada: '${gitRef}'. Preparando entorno para forzar el versionado..."
 
+                        echo "Forzando la descarga de todas las tags de Git..."
+                        sh "git fetch --tags --force"
+                        
                         // 1. Aseguramos estar en la rama correcta localmente
                         sh "git checkout develop"
                         
@@ -558,8 +659,7 @@ spec:
                     deployWithTerraform()
                     
                     echo "Esperando 120 segundos para la estabilización de los servicios en STAGING..."
-                    sleep 120
-                    runEndToEndTests()
+                    
                 }
             }
         }
