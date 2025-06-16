@@ -515,13 +515,13 @@ spec:
                 apiVersion: v1
                 kind: Pod
                 spec:
-                containers:
-                - name: zap
-                image: sebashm1/jenkins-tools-completa:jdk17
-                command:
-                - sleep
-                args:
-                - 99d
+                    containers:
+                    - name: zap
+                    image: sebashm1/jenkins-tools-completa:jdk17
+                    command:
+                    - sleep
+                    args:
+                    - 99d
                 """
             }
         }
