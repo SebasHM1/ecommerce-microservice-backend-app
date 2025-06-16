@@ -507,83 +507,83 @@ spec:
         }
 */    
     stage('Pruebas de Seguridad (DAST con ZAP)') {
-        agent {
-            // Reutilizamos el mismo agente que tiene Docker
-            kubernetes {
-            label 'default' 
-            }
+    agent {
+        kubernetes {
+            label 'default'
         }
-        environment {
-            // --- ¡USAREMOS LAS MISMAS VARIABLES QUE EN LOCUST! ---
-            // Asegúrate de que estos valores son correctos para tu entorno de stage.
-            API_GATEWAY_SERVICE_NAME = 'api-gateway'
-            K8S_NAMESPACE = 'dev'
-            API_GATEWAY_PORT = 8080 
-            
-            // Construimos la URL objetivo para ZAP
-            TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
-        }
-        steps {
-            container('tools') {
-                script {
-                    try {
-                        sh """
-                        echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
-                        
-                        docker run --rm \\
-                            --network host \\
-                            --user \$(id -u):\$(id -g) \\
-                            -v \$(pwd):/zap/wrk/:rw \\
-                            -t softwaresecurityproject/zap-stable zap-baseline.py \\
-                            -t ${TARGET_URL_FOR_ZAP} \\
-                            -r zap_baseline_report.html \\
-                            -w zap_baseline_report.md \\
-                            -J zap_baseline_report.json \\
-                            || true 
-                        """
+    }
+    environment {
+        API_GATEWAY_SERVICE_NAME = 'api-gateway'
+        K8S_NAMESPACE = 'dev'
+        API_GATEWAY_PORT = 8080 
+        TARGET_URL_FOR_ZAP = "http://${API_GATEWAY_SERVICE_NAME}.${K8S_NAMESPACE}.svc.cluster.local:${API_GATEWAY_PORT}"
+    }
+    steps {
+        container('tools') {
+            script {
+                try {
+                    // PASO 1: Ejecutar ZAP con la configuración de red y DNS correcta.
+                    sh """
+                    echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
                     
-                        def report = readJSON file: 'zap_baseline_report.json'
-                        def highAlerts = report.site.alerts.findAll { it.risk == 'High' }.size()
-                        def mediumAlerts = report.site.alerts.findAll { it.risk == 'Medium' }.size()
+                    docker run --rm \\
+                        --network host \\
+                        --dns 10.96.0.10 \\
+                        --user \$(id -u):\$(id -g) \\
+                        -v \$(pwd):/zap/wrk/:rw \\
+                        -t softwaresecurityproject/zap-stable zap-baseline.py \\
+                        -t ${TARGET_URL_FOR_ZAP} \\
+                        -r zap_baseline_report.html \\
+                        -w zap_baseline_report.md \\
+                        -J zap_baseline_report.json \\
+                        || true 
+                    """
 
-                        echo "Escaneo de ZAP completado. Resultados:"
-                        echo "Alertas Altas: \${highAlerts}"
-                        echo "Alertas Medias: \${mediumAlerts}"
-                        
-                        if (highAlerts > 0) {
-                            // Si quieres que el build falle si hay alertas altas, usa 'error'
-                            // error("Fallo del build: Se encontraron \${highAlerts} alertas de riesgo ALTO.")
-                            
-                            // Para un entorno académico, es mejor marcarlo como inestable.
-                            echo "ADVERTENCIA: Se encontraron \${highAlerts} alertas de riesgo ALTO."
-                            currentBuild.result = 'SUCCESS' // Mantenemos el build como SUCCESS pero con advertencia
+                    // PASO 2: Verificar el reporte SIN 'readJSON', usando 'grep'.
+                    // Esto no requiere plugins adicionales.
+                    echo "Verificando los resultados del escaneo..."
+                    if (fileExists('zap_baseline_report.json')) {
+                        // Usamos 'sh' para ejecutar grep. 'grep -q' es silencioso y devuelve 0 si encuentra algo.
+                        // El 'returnStatus: true' es para que Jenkins no falle si grep devuelve 1 (no encontró nada).
+                        def highAlertsFound = sh(script: 'grep -q \'"risk":"High"\' zap_baseline_report.json', returnStatus: true) == 0
+
+                        if (highAlertsFound) {
+                            echo "¡ADVERTENCIA! Se encontraron alertas de riesgo ALTO en el reporte de ZAP."
+                            currentBuild.result = 'UNSTABLE'
+                        } else {
+                            echo "No se encontraron alertas de riesgo ALTO."
                         }
-                        
-                    } catch (e) {
-                        echo "Falló la ejecución de la etapa de ZAP: ${e.message}"
+                    } else {
+                        echo "ADVERTENCIA: El reporte de ZAP no fue generado. El escaneo probablemente falló."
                         currentBuild.result = 'UNSTABLE'
                     }
+
+                } catch (e) {
+                    echo "Falló la ejecución de la etapa de ZAP: ${e.message}"
+                    currentBuild.result = 'UNSTABLE'
                 }
             }
         }
-        post {
-            always {
-                echo "Archivando reportes de OWASP ZAP..."
-                archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
-                
-                // Reutilizamos el mismo publicador HTML.
-                // Recuerda instalar el plugin 'HTML Publisher' en Jenkins.
-                publishHTML(target: [
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: '.',
-                    reportFiles: 'zap_baseline_report.html',
-                    reportName: 'Reporte de Seguridad (OWASP ZAP)'
-                ])
-            }
+    }
+    post {
+        always {
+            echo "Archivando reportes de OWASP ZAP..."
+            archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
+            
+            // Comentado para evitar errores si el plugin no está. Descomenta si lo instalas.
+            /*
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: '.',
+                reportFiles: 'zap_baseline_report.html',
+                reportName: 'Reporte de Seguridad (OWASP ZAP)'
+            ])
+            */
         }
     }
+}
 
         stage('Create Semantic Version & Release') {
             when {
