@@ -435,12 +435,7 @@ spec:
             }
         }
 
-                stage('Create Semantic Version & Release') {
-            when {
-                allOf {
-                    expression { return params.RUN_PROMOTE_PROD && currentBuild.currentResult == 'SUCCESS' }
-                }
-            }
+        stage('Create Semantic Version & Release') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'github-pat-sebashm1', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                     script {
@@ -451,10 +446,6 @@ spec:
                         }
 
                         echo "Rama '${gitRef}' detectada. Iniciando proceso de versionado semántico..."
-                        
-                        // Antes de hacer push, es una buena práctica hacer checkout explícito a la rama.
-                        // Esto saca a Git del estado "detached HEAD" y lo pone sobre la rama.
-                        sh "git checkout ${currentBranch}"
                         
                         sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI"'
