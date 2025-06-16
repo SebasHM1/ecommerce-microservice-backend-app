@@ -452,6 +452,10 @@ spec:
 
                         echo "Rama '${gitRef}' detectada. Iniciando proceso de versionado semántico..."
                         
+                        // Antes de hacer push, es una buena práctica hacer checkout explícito a la rama.
+                        // Esto saca a Git del estado "detached HEAD" y lo pone sobre la rama.
+                        sh "git checkout ${currentBranch}"
+                        
                         sh 'git config --global user.email "jenkins-ci@tuempresa.com"'
                         sh 'git config --global user.name "Jenkins CI"'
                         
