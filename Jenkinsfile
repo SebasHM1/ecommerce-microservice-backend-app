@@ -522,9 +522,9 @@ spec:
         container('tools') {
             script {
                 try {
-                    // PASO 1: Ejecutar ZAP con la configuración de red y DNS correcta.
+                    // --- LA VERSIÓN FINAL Y COMPLETA DEL COMANDO DOCKER ---
                     sh """
-                    echo "Iniciando escaneo DAST con OWASP ZAP contra: ${TARGET_URL_FOR_ZAP}"
+                    echo "Iniciando escaneo DAST con OWASP ZAP contra el punto de entrada: ${TARGET_URL_FOR_ZAP}"
                     
                     docker run --rm \\
                         --network host \\
@@ -534,28 +534,25 @@ spec:
                         --workdir /zap/wrk \\
                         -t softwaresecurityproject/zap-stable zap-baseline.py \\
                         -t ${TARGET_URL_FOR_ZAP} \\
+                        -I \\
                         -r zap_baseline_report.html \\
                         -w zap_baseline_report.md \\
                         -J zap_baseline_report.json \\
                         || true 
                     """
 
-                    // PASO 2: Verificar el reporte SIN 'readJSON', usando 'grep'.
-                    // Esto no requiere plugins adicionales.
                     echo "Verificando los resultados del escaneo..."
                     if (fileExists('zap_baseline_report.json')) {
-                        // Usamos 'sh' para ejecutar grep. 'grep -q' es silencioso y devuelve 0 si encuentra algo.
-                        // El 'returnStatus: true' es para que Jenkins no falle si grep devuelve 1 (no encontró nada).
+                        echo "¡ÉXITO! Reporte de ZAP generado correctamente."
                         def highAlertsFound = sh(script: 'grep -q \'"risk":"High"\' zap_baseline_report.json', returnStatus: true) == 0
-
                         if (highAlertsFound) {
                             echo "¡ADVERTENCIA! Se encontraron alertas de riesgo ALTO en el reporte de ZAP."
-                            currentBuild.result = 'SUCCESS' // Aún así marcamos el build como exitoso, pero con advertencia.
+                            currentBuild.result = 'UNSTABLE'
                         } else {
-                            echo "No se encontraron alertas de riesgo ALTO."
+                            echo "No se encontraron alertas de riesgo ALTO. ¡El escaneo de seguridad pasó!"
                         }
                     } else {
-                        echo "ADVERTENCIA: El reporte de ZAP no fue generado. El escaneo probablemente falló."
+                        echo "ERROR INESPERADO: El reporte de ZAP no fue generado. Revisar el log de ZAP."
                         currentBuild.result = 'UNSTABLE'
                     }
 
@@ -571,7 +568,8 @@ spec:
             echo "Archivando reportes de OWASP ZAP..."
             archiveArtifacts artifacts: 'zap_baseline_report.html, zap_baseline_report.md, zap_baseline_report.json', allowEmptyArchive: true
             
-            
+            // Si tienes el plugin HTML Publisher, descomenta esta sección.
+            /*
             publishHTML(target: [
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
@@ -580,7 +578,7 @@ spec:
                 reportFiles: 'zap_baseline_report.html',
                 reportName: 'Reporte de Seguridad (OWASP ZAP)'
             ])
-            
+            */
         }
     }
 }
