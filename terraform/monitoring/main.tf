@@ -76,6 +76,19 @@ resource "helm_release" "grafana" {
       # Usuario: admin, Contraseña: admin-password
       adminPassword = "admin-password"
 
+      # ======================================================================
+      # INICIO DE LA ACTUALIZACIÓN
+      # Corrección para el error "no matches for kind PodSecurityPolicy".
+      # Las versiones modernas de Kubernetes ya no usan PSPs, por lo que
+      # debemos decirle al chart de Helm que no intente crear una.
+      # ======================================================================
+      podSecurityPolicy = {
+        enabled = false
+      }
+      # ======================================================================
+      # FIN DE LA ACTUALIZACIÓN
+      # ======================================================================
+
       # AÑADIMOS LA MAGIA: Pre-configurar el Datasource de Prometheus
       datasources = {
         "datasources.yaml" = {
@@ -112,7 +125,7 @@ resource "kubernetes_config_map" "spring_boot_dashboard" {
     namespace = kubernetes_namespace.monitoring.metadata[0].name
     labels = {
       # Esta etiqueta debe coincidir con la que busca el sidecar de Grafana
-      grafana_dashboard = "1" 
+      grafana_dashboard = "1"
     }
   }
 
