@@ -27,15 +27,15 @@ spec:
         - containerPort: 8800
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "dev"
+          value: SPRING_PROFILE_PLACEHOLDER 
         - name: SPRING_ZIPKIN_BASE_URL
           value: "http://zipkin:9411/"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://cloud-config:9296"
         readinessProbe:
           httpGet:
-            path: /actuator/health
+            path: favourite-service/actuator/health
             port: 8800
-          initialDelaySeconds: 25
+          initialDelaySeconds: 180
           periodSeconds: 5
           failureThreshold: 10

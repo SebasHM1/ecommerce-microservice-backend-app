@@ -1,0 +1,320 @@
+{
+	"info": {
+		"_postman_id": "cf56619e-5021-44c8-84fa-7075d419d49b",
+		"name": "E2E Test 4 - Shipping",
+		"description": "In this test we are going to create a shipment from the order and product created previously, then updating it by altering its product quantity and finally were gonna delete it and check its elimination.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30963428"
+	},
+	"item": [
+		{
+			"name": "Create Shipping",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// 1. Definir constantes fijas para producto y orden\r",
+							"const product = {\r",
+							"    productId: 14,\r",
+							"    productTitle: \"LV TV 4K\",\r",
+							"    imageUrl: \"http:image-example-LV-TV-4K\",\r",
+							"    sku: \"LVTV4K-55INCH\",\r",
+							"    priceUnit: 1000.0,\r",
+							"    quantity: 50,\r",
+							"    category: {\r",
+							"        categoryId: 10,\r",
+							"        categoryTitle: \"TVs\",\r",
+							"        imageUrl: \"http:/example-tvs-category-image/\"\r",
+							"    }\r",
+							"};\r",
+							"\r",
+							"const order = {\r",
+							"    orderId: 7,\r",
+							"    orderDate: \"23-05-2025__02:05:55:547092\",\r",
+							"    orderDesc: \"Testing description for order 1\",\r",
+							"    orderFee: 1150.0,\r",
+							"    cart: {\r",
+							"        cartId: 7,\r",
+							"        userId: null\r",
+							"    }\r",
+							"};\r",
+							"\r",
+							"// 2. Construir el objeto shipping con esas constantes\r",
+							"const shippingPayload = {\r",
+							"    productId: product.productId,\r",
+							"    orderId: order.orderId,\r",
+							"    orderedQuantity: 2,\r",
+							"    product: {\r",
+							"        productId: product.productId,\r",
+							"        productTitle: product.productTitle,\r",
+							"        imageUrl: product.imageUrl,\r",
+							"        sku: product.sku,\r",
+							"        priceUnit: product.priceUnit,\r",
+							"        quantity: product.quantity\r",
+							"    },\r",
+							"    order: {\r",
+							"        orderId: order.orderId,\r",
+							"        orderDate: order.orderDate,\r",
+							"        orderDesc: order.orderDesc,\r",
+							"        orderFee: order.orderFee\r",
+							"    }\r",
+							"};\r",
+							"\r",
+							"// 3. Guardar el payload como variable temporal para usar en la solicitud\r",
+							"pm.variables.set(\"shippingPayload\", JSON.stringify(shippingPayload, null, 2));\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200)\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"createdShippingResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{{shippingPayload}}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/shipping-service/api/shippings",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"shipping-service",
+						"api",
+						"shippings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update Shipping",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"const shipping = JSON.parse(pm.collectionVariables.get(\"createdShippingResponse\"));\r",
+							"\r",
+							"shipping.orderedQuantity = 3; \r",
+							"\r",
+							"pm.variables.set(\"updatedShippingPayload\", JSON.stringify(shipping, null, 2));\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200)\r",
+							"});\r",
+							"\r",
+							"var jsonData = pm.response.json();\r",
+							"\r",
+							"pm.collectionVariables.set(\"updatedShippingResponse\", JSON.stringify(jsonData));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{{updatedShippingPayload}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/shipping-service/api/shippings",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"shipping-service",
+						"api",
+						"shippings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Shipping",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"const updatedShipping = JSON.parse(pm.collectionVariables.get(\"updatedShippingResponse\"));\r",
+							"\r",
+							"pm.environment.set(\"orderId\", updatedShipping.orderId);\r",
+							"pm.environment.set(\"productId\", updatedShipping.productId);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (OK)\", function () {\r",
+							"    pm.expect(pm.response.code).equals(200)\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"orderId\": {{orderId}},\r\n    \"productId\": {{productId}}\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/shipping-service/api/shippings/delete",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"shipping-service",
+						"api",
+						"shippings",
+						"delete"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Check Delete",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Obtener el shipping previamente creado (antes de ser eliminado)\r",
+							"const deletedShipping = JSON.parse(pm.collectionVariables.get(\"createdShippingResponse\"));\r",
+							"\r",
+							"// Obtener la colección de la respuesta (lista de shippings después del DELETE)\r",
+							"const shippingCollection = pm.response.json().collection;\r",
+							"\r",
+							"// Buscar la entrada que debería haber sido eliminada\r",
+							"const match = shippingCollection.find(s => \r",
+							"    s.productId === deletedShipping.productId &&\r",
+							"    s.orderId === deletedShipping.orderId\r",
+							");\r",
+							"\r",
+							"// Asegurar que ya no exista\r",
+							"pm.test(\"Shipping eliminado correctamente\", function () {\r",
+							"    pm.expect(match).to.be.undefined;\r",
+							"});\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{API_GATEWAY_URL}}/shipping-service/api/shippings",
+					"host": [
+						"{{API_GATEWAY_URL}}"
+					],
+					"path": [
+						"shipping-service",
+						"api",
+						"shippings"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "createdShippingResponse",
+			"value": ""
+		},
+		{
+			"key": "updatedShippingResponse",
+			"value": ""
+		}
+	]
+}

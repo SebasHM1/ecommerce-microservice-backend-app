@@ -43,13 +43,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 				.antMatchers("/api/authenticate/**").permitAll()
 				.antMatchers("/api/categories/**").permitAll()
 				.antMatchers("/api/products/**").permitAll()
-				.antMatchers("/api/**")
-					.hasAnyRole(RoleBasedAuthority.ROLE_USER.getRole(), 
-							RoleBasedAuthority.ROLE_ADMIN.getRole())
+				.antMatchers("/api/**").permitAll()
 				.antMatchers("/actuator/health/**", "/actuator/info/**")
 					.permitAll()
 				.antMatchers("/actuator/**")
-					.hasAnyRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
+					.permitAll()
 				.anyRequest().authenticated()
 			.and()
 			.headers()
@@ -58,8 +56,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 			.and()
 			.sessionManagement()
 				.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-			.and()
-			.addFilterBefore(this.jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+			.and();
+			// .addFilterBefore(this.jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 	}
 	
 	@Bean

@@ -43,7 +43,7 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
-      - EUREKA_INSTANCE=cloud-config-container
+      - EUREKA_INSTANCE=cloud-config
     networks:
       - ecommerce-network
     healthcheck:
@@ -72,7 +72,7 @@ services:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://service-discovery:8761/eureka
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=api-gateway-container
+      - EUREKA_INSTANCE=api-gateway
     networks:
       - ecommerce-network
     
@@ -96,7 +96,7 @@ services:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=proxy-client-container
+      - EUREKA_INSTANCE=proxy-client
     networks:
       - ecommerce-network      
 
@@ -119,7 +119,7 @@ services:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=order-service-container
+      - EUREKA_INSTANCE=order-service
     networks:
       - ecommerce-network     
 
@@ -142,7 +142,7 @@ services:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=payment-service-container
+      - EUREKA_INSTANCE=payment-service
     networks:
       - ecommerce-network     
 
@@ -159,16 +159,39 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      payment-service:
+      order-service:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=product-service-container
+      - EUREKA_INSTANCE=product-service
     networks:
       - ecommerce-network     
 
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - 8700:8700
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8700/user-service/actuator/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      product-service:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
+      - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
+      - EUREKA_INSTANCE=user-service
+
+    networks:
+      - ecommerce-network  
   shipping-service:
     build:
       context: ./shipping-service
@@ -182,62 +205,40 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
-      product-service:
+      user-service:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=shipping-service-container
+      - EUREKA_INSTANCE=shipping-service
     networks:
       - ecommerce-network   
 
-  user-service:
+      
+
+  favourite-service:
     build:
-      context: ./user-service
+      context: ./favourite-service
       dockerfile: Dockerfile
-    container_name: user-service
+    container_name: favourite-service
     ports:
-      - 8700:8700
+      - 8800:8800
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8700/user-service/actuator/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8800/favourite-service/actuator/health"]
       interval: 60s
       timeout: 5s
       retries: 5
     depends_on:
-      shipping-service:
+      user-service:
         condition: service_healthy
     environment:
       - SPRING_PROFILES_ACTIVE=dev
       - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
       - SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      - EUREKA_INSTANCE=user-service-container
-
+      - EUREKA_INSTANCE=favourite-service
     networks:
-      - ecommerce-network      
-
-  #favourite-service:
-   # build:
-    #  context: ./favourite-service
-     # dockerfile: Dockerfile
-    #container_name: favourite-service
-    #ports:
-     # - 8800:8800
-    #healthcheck:
-    #  test: ["CMD", "curl", "-f", "http://localhost:8800/favourite-service/actuator/health"]
-     # interval: 60s
-      #timeout: 5s
-     # retries: 5
-    #depends_on:
-     # user-service:
-      #  condition: service_healthy
-    #environment:
-     # - SPRING_PROFILES_ACTIVE=dev
-      #- SPRING_ZIPKIN_BASE_URL=http://zipkin:9411/
-      #- SPRING_CONFIG_IMPORT=optional:configserver:http://cloud-config:9296
-      #- EUREKA_INSTANCE=favourite-service-container
-    #networks:
-     # - ecommerce-network
+      - ecommerce-network
 
 networks:
   ecommerce-network:

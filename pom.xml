@@ -21,9 +21,14 @@
 		<java.version>11</java.version>
 		<spring-cloud.version>2020.0.4</spring-cloud.version>
 		<testcontainers.version>1.16.0</testcontainers.version>
+		<sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+    	<sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+		<sonar.coverage.jacoco.xmlReportPath>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPath>
+    	<sonar.junit.reportPaths>${project.build.directory}/surefire-reports</sonar.junit.reportPaths>
 	</properties>
 	
 	<dependencies>
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
@@ -115,12 +120,94 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version> <!-- Usa la última versión estable -->
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>verify</phase> <!-- Genera el reporte después de los tests -->
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+        	</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<!-- Plugin para tests unitarios (Surefire) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*IntegrationTest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Plugin para tests de integración (Failsafe) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${maven-failsafe-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>**/*IT.java</include>
+                                <include>**/*IntegrationTest.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
 			</plugin>
 		</plugins>
 		<finalName>${project.artifactId}-v${project.version}</finalName>
 	</build>
+
+	<profiles> 
+        <profile>
+            <id>run-its</id>
+        </profile>
+
+        <profile>
+            <id>skip-its</id>
+            <properties>
+                 <skipITs>true</skipITs> <!-- Failsafe respeta esta propiedad -->
+            </properties>
+            <!-- Alternativamente, para ser más explícito (pero la propiedad suele ser suficiente): -->
+            <!--
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>${maven-failsafe-plugin.version}</version>
+                        <configuration>
+                            <skipITs>true</skipITs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            -->
+        </profile>
+    </profiles>
 	
 </project>
 
