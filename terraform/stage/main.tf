@@ -15,30 +15,153 @@ resource "kubernetes_namespace" "env_namespace" {
   }
 }
 
+
 # ==============================================================================
-# NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
+# DESPLIEGUE DE LA BASE DE DATOS PARA ESTE ENTORNO
 # ==============================================================================
-resource "kubernetes_deployment" "zipkin" {
-  # Dependencia explícita en la creación del namespace.
+# BLOQUE 1: El Secret para las contraseñas
+resource "kubernetes_secret" "mysql_secrets" {
   depends_on = [kubernetes_namespace.env_namespace]
-  
   metadata {
-    name      = "zipkin"
-    namespace = var.k8s_namespace # Usar la variable de namespace
-    labels    = { app = "zipkin" }
+    name      = "mysql-secret"
+    namespace = var.k8s_namespace
+  }
+  data = {
+    "mysql-root-password" = "my-stage-secret-password" // Usa una contraseña segura
+    "mysql-database"      = "ecommerce_stage_db"
+  }
+}
+
+# BLOQUE 2: El Deployment para el pod de MySQL
+resource "kubernetes_deployment" "mysql" {
+  depends_on = [kubernetes_secret.mysql_secrets] // Depende del Secret
+  metadata {
+    name      = "mysql"
+    namespace = var.k8s_namespace
+    labels    = { app = "mysql" }
   }
   spec {
     replicas = 1
-    selector { match_labels = { app = "zipkin" } }
+    selector { match_labels = { app = "mysql" } }
     template {
-      metadata { labels = { app = "zipkin" } }
+      metadata { labels = { app = "mysql" } }
+      spec {
+        container {
+          name  = "mysql"
+          image = "mysql:8.0"
+          port { container_port = 3306 }
+          env {
+            name  = "MYSQL_ROOT_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key  = "mysql-root-password"
+              }
+            }
+          }
+          env {
+            name = "MYSQL_DATABASE"
+            value_from {
+               secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key = "mysql-database"
+               }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# BLOQUE 3: El Service para exponer MySQL en la red
+resource "kubernetes_service" "mysql" {
+  depends_on = [kubernetes_deployment.mysql] // Depende del Deployment
+  metadata {
+    name      = "mysql"
+    namespace = var.k8s_namespace
+  }
+  spec {
+    selector = { app = "mysql" }
+    port {
+      port        = 3306
+      target_port = 3306
+    }
+    type = "ClusterIP"
+  }
+}
+# ==============================================================================
+# NIVEL 0: Despliegue de Servicios sin Dependencias (Zipkin)
+# ==============================================================================
+
+resource "kubernetes_deployment" "zipkin" {
+  # Asegura que el servicio de MySQL exista antes de intentar crear este despliegue.
+  depends_on = [kubernetes_service.mysql]
+  
+  # --- METADATA DEL DEPLOYMENT ---
+  # Define el nombre, namespace y etiquetas del propio objeto Deployment.
+  metadata {
+    name      = "zipkin"
+    namespace = var.k8s_namespace
+    labels = {
+      app = "zipkin"
+    }
+  }
+  
+  # --- ESPECIFICACIÓN DEL DEPLOYMENT ---
+  spec {
+    # Define cuántas réplicas (pods) de Zipkin quieres tener.
+    replicas = 1
+    
+    # --- SELECTOR: El pegamento entre el Deployment y los Pods ---
+    # Le dice al Deployment: "Gestiona todos los pods que tengan la etiqueta 'app: zipkin'".
+    selector {
+      match_labels = {
+        app = "zipkin"
+      }
+    }
+    
+    # --- PLANTILLA DEL POD (POD TEMPLATE) ---
+    # Esta es la receta para crear cada pod de Zipkin.
+    template {
+      # --- METADATA DEL POD ---
+      # Define las etiquetas que se aplicarán a cada pod creado.
+      # ¡Debe coincidir con el 'selector' de arriba!
+      metadata {
+        labels = {
+          app = "zipkin"
+        }
+      }
+      
+      # --- ESPECIFICACIÓN DEL POD ---
       spec {
         container {
           name  = "zipkin"
-          # CAMBIO: La imagen de Zipkin ahora también viene del mapa.
-          # Esto te da la flexibilidad de actualizarla desde Jenkins si lo necesitas.
           image = var.service_images["zipkin"]
           port { container_port = 9411 }
+
+          # Variables de entorno para conectar Zipkin a MySQL
+          env {
+            name  = "STORAGE_TYPE"
+            value = "mysql"
+          }
+          env {
+            name  = "MYSQL_JDBC_URL"
+            value = "jdbc:mysql://mysql:3306/${kubernetes_secret.mysql_secrets.data["mysql-database"]}?autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true"
+          }
+          env {
+            name  = "MYSQL_USER"
+            value = "root"
+          }
+          env {
+            name  = "MYSQL_PASS"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.mysql_secrets.metadata[0].name
+                key  = "mysql-root-password"
+              }
+            }
+          }
         }
       }
     }
@@ -94,7 +217,7 @@ module "cloud-config" {
 # ==============================================================================
 module "service-discovery" {
   source = "../modules/microservice"
-  depends_on = [module.cloud-config]
+  depends_on = [kubernetes_deployment.zipkin]
 
   name           = "service-discovery"
   namespace      = var.k8s_namespace # Usar la variable de namespace
@@ -135,7 +258,7 @@ locals {
 # 3.1: User Service
 module "user-service" {
   source = "../modules/microservice"
-  depends_on = [module.service-discovery]
+  depends_on = [module.cloud-config]
 
   name           = "user-service"
   namespace      = var.k8s_namespace
@@ -245,12 +368,3 @@ module "api-gateway" {
     { "EUREKA_INSTANCE" = "api-gateway" }
   )
 }
-
-# Continúa con los demás servicios como proxy-client, favourite-service, etc.,
-# siguiendo el mismo patrón. Por ejemplo:
-
-# module "proxy-client" {
-#   ...
-#   image = var.service_images["proxy"]
-#   ...
-# }
