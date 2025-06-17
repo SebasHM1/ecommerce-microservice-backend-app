@@ -139,6 +139,7 @@ spec:
     
     // NUEVO: Parámetros para controlar la ejecución del pipeline.
     parameters {
+        booleanParam(name: 'DEPLOY_MONITORING_STACK', defaultValue: true, description: 'Desplegar o actualizar el stack de monitoreo (Prometheus & Grafana).')
         booleanParam(name: 'RUN_BUILD_AND_ANALYZE', defaultValue: true, description: 'Ejecutar fases de compilación, tests unitarios y análisis de SonarQube.')
         booleanParam(name: 'RUN_PACKAGE_AND_SCAN', defaultValue: true, description: 'Ejecutar fases para construir, subir y escanear imágenes Docker con Trivy.')
         booleanParam(name: 'RUN_DEPLOY_DEV', defaultValue: true, description: 'Ejecutar despliegue en el entorno de DEV.')
@@ -153,7 +154,7 @@ spec:
         K8S_NAMESPACE = "dev" 
         SPRING_ACTIVE_PROFILE_APP = "dev"
         TERRAFORM_ENV_DIR = "dev"
-        RUN_E2E_TESTS = "false"
+        RUN_E2E_TESTS = "true"
         IMAGE_TAG_SUFFIX = "" 
         MAVEN_PROFILES = "-Prun-its" 
         //TERRAFORM_SERVICE_IMAGES_VAR = ""
@@ -420,6 +421,23 @@ spec:
         // FASE 2: SECUENCIA DE PROMOCIÓN Y DESPLIEGUE CONTROLADO
         // ==================================================================
 
+        stage('Deploy/Update Monitoring Stack') {
+            when {
+                expression { return params.DEPLOY_MONITORING_STACK }
+            }
+            steps {
+                script {
+                    echo "===================================================================="
+                    echo "==> Desplegando/Actualizando el stack de Prometheus y Grafana..."
+                    echo "===================================================================="
+                    dir("terraform/monitoring") {
+                        sh 'terraform init -input=false'
+                        sh 'terraform apply -auto-approve -input=false'
+                    }
+                }
+            }
+        }
+
         stage('Deploy to DEV') {
             when { expression { return params.RUN_DEPLOY_DEV } }
             steps {
@@ -432,29 +450,29 @@ spec:
                     echo "--> Desplegando artefacto '${IMAGE_TAG_SUFFIX}' a DEV..."
                     deployWithTerraform()
 
-                    //sleep 120 // Esperamos 120 segundos para que los servicios se estabilicen
-                    //runEndToEndTests()
+                    //sleep 120 
+                    runEndToEndTests()
 
                 }
             }
         }
-        /*
+        
         stage('Pruebas de Estrés (Locust)') {
             agent {
                 kubernetes {
                     cloud 'kubernetes'
-                    yaml """
-                    apiVersion: v1
-                    kind: Pod
-                    spec:
-                    containers:
-                    - name: locust
-                    image: sebashm1/jenkins-tools-completa:jdk17
-                    command:
-                    - sleep
-                    args:
-                    - 99d
-                    """
+            yaml """
+            apiVersion: v1
+            kind: Pod
+            spec:
+              containers:
+              - name: locust
+                image: sebashm1/jenkins-tools-completa:jdk17
+                command:
+                - sleep
+                args:
+                - 99d
+            """
                 }
             }
             environment {
@@ -570,7 +588,7 @@ spec:
         }
     }
 }
-*/  
+
         stage('Create Semantic Version & Release') {
             when {
                 allOf {

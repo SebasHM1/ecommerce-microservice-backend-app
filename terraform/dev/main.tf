@@ -143,6 +143,7 @@ module "user-service" {
   image          = var.service_images["users"]
   spring_profile = var.spring_profile
   container_port = 8700
+  actuator_path = "/user-service/actuator/prometheus"
   health_check_path = "/user-service/actuator/health"
   init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
   env_vars = merge(
@@ -163,6 +164,7 @@ module "product-service" {
   spring_profile = var.spring_profile
   container_port = 8500
   health_check_path = "/product-service/actuator/health"
+  actuator_path = "/product-service/actuator/prometheus"
   init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
   env_vars = merge(
     local.common_app_env_vars,
@@ -181,6 +183,7 @@ module "order-service" {
   image          = var.service_images["order"]
   spring_profile = var.spring_profile
   container_port   = 8300
+  actuator_path = "/order-service/actuator/prometheus"
   health_check_path = "/order-service/actuator/health"
   init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
   env_vars = merge(
@@ -200,6 +203,7 @@ module "payment-service" {
   image          = var.service_images["payment"]
   spring_profile = var.spring_profile
   container_port   = 8400
+  actuator_path = "/payment-service/actuator/prometheus"
   health_check_path = "/payment-service/actuator/health"
   init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
   env_vars = merge(
@@ -220,6 +224,7 @@ module "shipping-service" {
   spring_profile = var.spring_profile
   container_port   = 8600
   health_check_type = "command"
+  actuator_path = "/shipping-service/actuator/prometheus"
   init_containers_config = local.init_containers_wait_for_infra # MEJORA: Reutilizar el local
   env_vars = merge(
     local.common_app_env_vars,
