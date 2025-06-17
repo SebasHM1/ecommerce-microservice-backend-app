@@ -1,25 +1,138 @@
-
 server:
-  port: 8900
+  servlet:
+    context-path: /app
+
+spring:
+  zipkin:
+    base-url: ${SPRING_ZIPKIN_BASE_URL:http://localhost:9411/}
+  cloud:
+    config:
+      enabled: false
+  application:
+    name: PROXY-CLIENT
+  profiles:
+    active:
+    - dev
+
+resilience4j:
+  retry:
+      instances:
+        user-service:
+          maxAttempts: 3
+          waitDuration: 10000ms
+          exponentialBackoffMultiplier: 2
+          retryExceptions:
+            - feign.FeignException
+            - java.net.ConnectException
+            - java.net.SocketTimeoutException
+            - org.springframework.web.client.ResourceAccessException
+            - org.springframework.web.client.HttpServerErrorException
+            - org.springframework.web.client.HttpClientErrorException
+          ignoreExceptions:
+            - java.lang.IllegalArgumentException
+            - feign.FeignException$NotFound
+            - feign.FeignException$BadRequest
+        order-service:
+          maxAttempts: 3
+          waitDuration: 2000ms
+          exponentialBackoffMultiplier: 1.5
+          retryExceptions:
+            - feign.FeignException
+            - java.net.ConnectException
+        product-service:
+          maxAttempts: 4
+          waitDuration: 1000ms
+          exponentialBackoffMultiplier: 2.0
+          retryExceptions:
+            - feign.FeignException
+            - java.net.ConnectException
+  circuitbreaker:
+    instances:
+      proxyService:
+        register-health-indicator: true
+        event-consumer-buffer-size: 10
+        automatic-transition-from-open-to-half-open-enabled: true
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        wait-duration-in-open-state: 5s
+        sliding-window-type: COUNT_BASED
+      order-service:
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000ms
+        slidingWindowSize: 10
+  timelimiter:
+    instances:
+      user-service:
+        timeoutDuration: 3s
+        cancelRunningFuture: true
+      order-service:
+        timeoutDuration: 5s
+        cancelRunningFuture: true
+      product-service:
+        timeoutDuration: 8s
+        cancelRunningFuture: true
+      default-timeout:
+        timeoutDuration: 2s
+        cancelRunningFuture: true
+      fast-timeout:
+        timeoutDuration: 1s
+        cancelRunningFuture: true
+      slow-timeout:
+        timeoutDuration: 10s
+        cancelRunningFuture: true
 
 management:
-  endpoints:
-    web:
-      exposure:
-        include: "*"
+  health:
+    circuitbreakers:
+      enabled: true
+  endpoint:
+    health:
+      show-details: always
+      
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE:http://service-discovery:8761/eureka/}
+  instance:
+      hostname: ${EUREKA_INSTANCE:proxy-client}
+
+ribbon:
+  eureka:
+    enabled: true
+  NIWSServerListClassName: com.netflix.niws.loadbalancer.DiscoveryEnabledNIWSServerList
 
 logging:
   level:
-    org:
-      hibernate:
-        SQL: DEBUG
-      springframework:
-        web: DEBUG
-        data: DEBUG
-      boot:
-        autoconfigure:
-          data:
-            rest: DEBUG
-            jpa: DEBUG
-            orm: DEBUG
+    root: INFO
+    io.github.resilience4j.retry: DEBUG
+    io.github.resilience4j.circuitbreaker: DEBUG
+    com.selimhorri.app: DEBUG
+    org.springframework.retry: DEBUG
+    org.springframework.retry.support.RetryTemplate: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
+# ================================
+# FEATURE TOGGLES CONFIGURATION
+# ================================
+feature:
+  toggle:
+    # Feature toggles estáticos (configurados en properties)
+    new-user-service: false        # Usar nuevo servicio de usuarios
+    enhanced-logging: true         # Logging mejorado
+    caching: false                 # Sistema de caché
+    retry-fallback: true           # Fallback para retry
+    
+    # Configuración adicional para features
+    config:
+      cache-ttl: 300               # TTL del caché en segundos
+      max-retry-attempts: 3        # Máximo intentos de retry
+      timeout-seconds: 5           # Timeout por defecto
+      
+    # Configuración para testing
+    testing:
+      enable-test-endpoints: true  # Habilitar endpoints de testing
+      mock-external-services: false # Usar mocks para servicios externos
+      debug-mode: true             # Modo debug para feature toggles
