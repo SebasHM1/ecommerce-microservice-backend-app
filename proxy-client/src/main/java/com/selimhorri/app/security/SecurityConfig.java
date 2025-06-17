@@ -47,7 +47,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 				.antMatchers("/actuator/health/**", "/actuator/info/**")
 					.permitAll()
 				.antMatchers("/actuator/**")
-					.hasAnyRole(RoleBasedAuthority.ROLE_ADMIN.getRole())
+					.permitAll()
 				.anyRequest().authenticated()
 			.and()
 			.headers()
