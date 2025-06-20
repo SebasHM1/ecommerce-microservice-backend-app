@@ -54,7 +54,7 @@ spec:
                         IMAGE_TAG_SUFFIX = "-dev"
                         // Para DEV: Correr unit tests (por defecto con `mvn package`), saltar ITs explícitamente
                         MAVEN_PROFILES = "-Pskip-its" 
-                        RUN_E2E_TESTS = "false"
+                        RUN_E2E_TESTS = "true"
                     } else if (env.GIT_BRANCH ==~ /.*\/staging.*/) {
                         echo "ENVIRONMENT: STAGE"
                         K8S_NAMESPACE = "stage"
